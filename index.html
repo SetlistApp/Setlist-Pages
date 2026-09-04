@@ -472,7 +472,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.7.2-beta7";
+const APP_VERSION = "1.7.2-beta8";
 const GS_SAVE_TIMEOUT_MS = 25e3;
 const GS_CALL_TIMEOUT_MS = 14e3;
 const GS_CALL_SYNC_TIMEOUT_MS = 7e3;
@@ -621,8 +621,9 @@ function saveDriveFolderSettingsRemote(recordingsFolderUrl) {
   return gsCall("saveDriveFolderSettings", recordingsFolderUrl);
 }
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+const UPLOAD_TIMEOUT_MS = 15e4;
 function uploadRecordingRemote(payload) {
-  return gsCall("uploadRecording", payload, GS_SAVE_TIMEOUT_MS);
+  return gsCall("uploadRecording", payload, UPLOAD_TIMEOUT_MS);
 }
 function deleteRecordingFileRemote(payload) {
   return gsCall("deleteRecordingFile", payload, GS_SAVE_TIMEOUT_MS);
