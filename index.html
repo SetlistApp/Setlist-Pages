@@ -472,7 +472,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.7.2-beta8";
+const APP_VERSION = "1.7.2-beta9";
 const GS_SAVE_TIMEOUT_MS = 25e3;
 const GS_CALL_TIMEOUT_MS = 14e3;
 const GS_CALL_SYNC_TIMEOUT_MS = 7e3;
@@ -1097,7 +1097,14 @@ function App() {
   });
   useEffect(() => {
     if (!loaded) return;
-    const interval = setInterval(() => runSyncCheckRef.current(), AUTO_REFRESH_INTERVAL_MS);
+    let lastTick = Date.now();
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const gap = now - lastTick;
+      lastTick = now;
+      if (gap > AUTO_REFRESH_INTERVAL_MS * 2) retryAllPendingSaves();
+      runSyncCheckRef.current();
+    }, AUTO_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [loaded]);
   function retryAllPendingSaves() {
@@ -1138,7 +1145,11 @@ function App() {
       runSyncCheckRef.current();
     }
     window.addEventListener("online", handleOnline);
-    return () => window.removeEventListener("online", handleOnline);
+    window.addEventListener("focus", handleOnline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("focus", handleOnline);
+    };
   }, [loaded]);
   function attemptDefsSave() {
     if (defsRetryTimer.current) {
