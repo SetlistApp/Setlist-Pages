@@ -1,0 +1,105 @@
+/* Bellafaire Brothers Setlist — offline app-shell service worker.
+ *
+ * Active on the GitHub-Pages-hosted duplicate of the beta app (see
+ * scripts/ship-pages.mjs / deploy/pages.config.json). Still inert while the
+ * app is served from Google Apps Script: Apps Script serves the page from
+ * script.googleusercontent.com after a redirect, browsers refuse to
+ * register a service worker from a URL that redirected, and the
+ * registration snippet in Index_v2_shell.html skips itself on any
+ * *.google.com host — so this file is never fetched or registered there,
+ * same as before. See web/README.md.
+ *
+ * Keep SW_VERSION in lockstep with APP_VERSION in app_body_complete.jsx and
+ * Code_v*.gs — bump all of them together on every ship.
+ */
+
+var SW_VERSION = "1.7.2-beta7";
+var CACHE = "setlist-shell-" + SW_VERSION;
+
+/* The app shell: the page itself plus the two CDN scripts it pulls today.
+ * TODO at host-move time: self-host react / react-dom instead of unpkg so the
+ * shell has zero cross-origin dependencies and precaches reliably offline. */
+var SHELL = [
+  "./",
+  "./index.html",
+  "https://unpkg.com/react@18/umd/react.production.min.js",
+  "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
+];
+
+self.addEventListener("install", function (event) {
+  event.waitUntil(
+    caches.open(CACHE).then(function (cache) {
+      // Fetch each shell entry individually (not cache.addAll, which is
+      // all-or-nothing) so one flaky CDN response can't block install. The
+      // navigate handler below still guarantees the page opens offline.
+      return Promise.all(SHELL.map(function (url) {
+        return fetch(url, { cache: "no-cache" })
+          .then(function (res) { if (res && res.ok) return cache.put(url, res); })
+          .catch(function () {});
+      }));
+    }).then(function () { return self.skipWaiting(); })
+  );
+});
+
+self.addEventListener("activate", function (event) {
+  event.waitUntil(
+    caches.keys().then(function (keys) {
+      return Promise.all(keys.map(function (k) {
+        if (k !== CACHE) return caches.delete(k);
+      }));
+    }).then(function () { return self.clients.claim(); })
+  );
+});
+
+self.addEventListener("fetch", function (event) {
+  var req = event.request;
+
+  // Never intercept writes or cross-origin API traffic (the future JSON API
+  // on script.google.com). Only same-origin GETs are cacheable — this is the
+  // no-data-loss guardrail: a save request must always hit the network raw.
+  if (req.method !== "GET") return;
+
+  var sameOrigin = new URL(req.url).origin === self.location.origin;
+
+  if (req.mode === "navigate") {
+    // App-shell: serve the cached page immediately (works with zero
+    // connection), and refresh the cached copy from the network in the
+    // background for the next load. The app already shows a "please refresh"
+    // banner on an APP_VERSION mismatch, so a one-load-stale shell is safe.
+    // ignoreVary: static hosts send "Vary: Accept-Encoding", which would
+    // otherwise stop the cached shell from matching the navigation request.
+    var opts = { ignoreVary: true, ignoreSearch: true };
+    event.respondWith(
+      caches.match("./index.html", opts).then(function (cached) {
+        var fresh = fetch(req).then(function (res) {
+          if (res && res.ok && res.type === "basic") {
+            var copy = res.clone();
+            caches.open(CACHE).then(function (c) { c.put("./index.html", copy); });
+          }
+          return res;
+        }).catch(function () { return null; });
+        return cached || fresh.then(function (r) {
+          return r || caches.match("./", opts);
+        });
+      })
+    );
+    return;
+  }
+
+  // Same-origin static assets (and the whitelisted CDN scripts): cache-first,
+  // revalidating in the background so an update lands on the next load.
+  if (!sameOrigin && SHELL.indexOf(req.url) === -1) return;
+
+  event.respondWith(
+    caches.match(req, { ignoreVary: true }).then(function (hit) {
+      var net = fetch(req).then(function (res) {
+        if (res && res.ok) {
+          var copy = res.clone();
+          caches.open(CACHE).then(function (c) { c.put(req, copy); });
+        }
+        return res;
+      }).catch(function () { return hit; });
+      return hit || net;
+    })
+  );
+});
