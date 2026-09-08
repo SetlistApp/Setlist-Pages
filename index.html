@@ -473,7 +473,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.7.2-beta12";
+const APP_VERSION = "1.7.2-beta13";
 const GS_SAVE_TIMEOUT_MS = 25e3;
 const GS_CALL_TIMEOUT_MS = 14e3;
 const GS_CALL_SYNC_TIMEOUT_MS = 7e3;
@@ -1928,7 +1928,7 @@ function SetlistView({ songs, sectionOrder, songOrder, setBreaks, onOpen, onSong
   ))), editMode && /* @__PURE__ */ React.createElement("span", { onPointerDown: startHeaderDrag(sec), style: styles.dragHandle }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 16, color: "var(--dim)" }))), (localSongOrder[sec] || []).map((id) => {
     const s = songsById[id];
     if (!s) return null;
-    return /* @__PURE__ */ React.createElement("div", { key: id, ref: setRowRef("song:" + id), style: { ...styles.dragRow, ...activeDragId === "song:" + id ? styles.dragging : {} } }, editMode && /* @__PURE__ */ React.createElement("span", { onPointerDown: startSongDrag(id), style: styles.dragHandle }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 16, color: "var(--dim)" })), /* @__PURE__ */ React.createElement("button", { onClick: () => onOpen(id), style: styles.rowMain }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.dot, background: getDotColor(s) } }), /* @__PURE__ */ React.createElement(SongTitleAndFeatures, { song: s }), s.key && /* @__PURE__ */ React.createElement("span", { style: styles.rowKey }, s.key)), editMode && onRemoveFromSetlist && /* @__PURE__ */ React.createElement(
+    return /* @__PURE__ */ React.createElement("div", { key: id, ref: setRowRef("song:" + id), style: { ...styles.dragRow, ...activeDragId === "song:" + id ? styles.dragging : {} } }, editMode && /* @__PURE__ */ React.createElement("span", { onPointerDown: startSongDrag(id), style: styles.dragHandle }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 16, color: "var(--dim)" })), /* @__PURE__ */ React.createElement("button", { onClick: () => onOpen(id), style: styles.rowMain }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.dot, background: getDotColor(s) } }), /* @__PURE__ */ React.createElement(SongTitleAndFeatures, { song: s })), editMode && onRemoveFromSetlist && /* @__PURE__ */ React.createElement(
       "button",
       {
         onClick: () => onRemoveFromSetlist(id),
@@ -1945,15 +1945,15 @@ function NotInShowView({ songs, order, onOpen, onAdd }) {
   return /* @__PURE__ */ React.createElement("div", { style: styles.list }, order.map((id) => {
     const s = songsById[id];
     if (!s) return null;
-    return /* @__PURE__ */ React.createElement("div", { key: id, style: styles.row }, /* @__PURE__ */ React.createElement("button", { onClick: () => onOpen(id), style: { ...styles.rowMain, padding: "4px 2px" } }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.dot, background: getDotColor(s) } }), /* @__PURE__ */ React.createElement(SongTitleAndFeatures, { song: s }), s.key && /* @__PURE__ */ React.createElement("span", { style: styles.rowKey }, s.key)), onAdd && /* @__PURE__ */ React.createElement("button", { onClick: () => onAdd(id), style: styles.nisAddBtn, "aria-label": "Add to setlist" }, "Add"));
+    return /* @__PURE__ */ React.createElement("div", { key: id, style: styles.row }, /* @__PURE__ */ React.createElement("button", { onClick: () => onOpen(id), style: { ...styles.rowMain, padding: "4px 2px" } }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.dot, background: getDotColor(s) } }), /* @__PURE__ */ React.createElement(SongTitleAndFeatures, { song: s })), onAdd && /* @__PURE__ */ React.createElement("button", { onClick: () => onAdd(id), style: styles.nisAddBtn, "aria-label": "Add to setlist" }, "Add"));
   }), order.length === 0 && /* @__PURE__ */ React.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ React.createElement(Icon, { name: "music", size: 26, color: "var(--line)" }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, "Every song is in this setlist.")));
 }
 function AllSongsView({ songs, onOpen }) {
   const sorted = useMemo(() => [...songs].sort((a, b) => a.title.localeCompare(b.title, void 0, { sensitivity: "base" })), [songs]);
-  return /* @__PURE__ */ React.createElement("div", { style: styles.list }, sorted.map((s) => /* @__PURE__ */ React.createElement("button", { key: s.id, onClick: () => onOpen(s.id), style: styles.row }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.dot, background: getDotColor(s) } }), /* @__PURE__ */ React.createElement(SongTitleAndFeatures, { song: s }), s.key && /* @__PURE__ */ React.createElement("span", { style: styles.rowKey }, s.key))), sorted.length === 0 && /* @__PURE__ */ React.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ React.createElement(Icon, { name: "music", size: 26, color: "var(--line)" }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, "No songs yet.")));
+  return /* @__PURE__ */ React.createElement("div", { style: styles.list }, sorted.map((s) => /* @__PURE__ */ React.createElement("button", { key: s.id, onClick: () => onOpen(s.id), style: styles.row }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.dot, background: getDotColor(s) } }), /* @__PURE__ */ React.createElement(SongTitleAndFeatures, { song: s }))), sorted.length === 0 && /* @__PURE__ */ React.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ React.createElement(Icon, { name: "music", size: 26, color: "var(--line)" }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, "No songs yet.")));
 }
 function SearchResultsList({ songs, onOpen }) {
-  return /* @__PURE__ */ React.createElement("div", { style: styles.list }, songs.map((s) => /* @__PURE__ */ React.createElement("button", { key: s.id, onClick: () => onOpen(s.id), style: styles.row }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.dot, background: getDotColor(s) } }), /* @__PURE__ */ React.createElement(SongTitleAndFeatures, { song: s }), s.key && /* @__PURE__ */ React.createElement("span", { style: styles.rowKey }, s.key))), songs.length === 0 && /* @__PURE__ */ React.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ React.createElement(Icon, { name: "music", size: 26, color: "var(--line)" }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, "No songs match your search.")));
+  return /* @__PURE__ */ React.createElement("div", { style: styles.list }, songs.map((s) => /* @__PURE__ */ React.createElement("button", { key: s.id, onClick: () => onOpen(s.id), style: styles.row }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.dot, background: getDotColor(s) } }), /* @__PURE__ */ React.createElement(SongTitleAndFeatures, { song: s }))), songs.length === 0 && /* @__PURE__ */ React.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ React.createElement(Icon, { name: "music", size: 26, color: "var(--line)" }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, "No songs match your search.")));
 }
 function AutoGrowTextarea({ value, onChange, onBlur, style }) {
   const ref = useRef(null);
@@ -3693,9 +3693,8 @@ const rawStyles = {
   dragHandle: { padding: "4px 6px", touchAction: "none", cursor: "grab", display: "flex", alignItems: "center", flexShrink: 0 },
   dot: { width: 9, height: 9, borderRadius: "50%", flexShrink: 0, boxShadow: "0 0 6px currentColor" },
   rowTitleFeaturesWrap: { flex: 1, minWidth: 0, display: "flex", flexWrap: "wrap", alignItems: "baseline", columnGap: 8, rowGap: 1 },
-  rowTitle: { fontFamily: "var(--display)", fontWeight: 600, fontSize: 17.5, color: "var(--text)", letterSpacing: "0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  rowFeatures: { fontSize: 12.5, color: "var(--dim)" },
-  rowKey: { fontFamily: "var(--mono)", fontSize: 12.5, color: "var(--gold)", background: "rgba(227,168,59,0.1)", padding: "3px 8px", borderRadius: 6, flexShrink: 0 },
+  rowTitle: { fontFamily: "var(--display)", fontWeight: 600, fontSize: 20.5, color: "var(--text)", letterSpacing: "0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  rowFeatures: { fontSize: 14.5, color: "var(--dim)" },
   rowSectionTag: { fontFamily: "var(--body)", fontSize: 10.5, color: "var(--dim)", border: "1px solid var(--line)", borderRadius: 6, padding: "2px 6px", flexShrink: 0 },
   // ---- 1.7.2-beta2 setlist bar + sheets ----
   nisAddBtn: { fontFamily: "var(--display)", fontWeight: 600, fontSize: 10.5, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--gold)", background: "none", border: "1px solid rgba(227,168,59,0.45)", borderRadius: 7, padding: "6px 12px", cursor: "pointer", flexShrink: 0, marginRight: 6 },
