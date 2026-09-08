@@ -1,7 +1,7 @@
 /* Bellafaire Brothers Setlist — offline app-shell service worker.
  *
- * Active on the GitHub-Pages-hosted duplicate of the beta app (see
- * scripts/ship-pages.mjs / deploy/pages.config.json). Still inert while the
+ * Active on the GitHub-Pages-hosted sites (beta: Setlist-Pages-BETA, prod:
+ * Setlist-App-PR — see scripts/ship-pages.mjs). Still inert while the
  * app is served from Google Apps Script: Apps Script serves the page from
  * script.googleusercontent.com after a redirect, browsers refuse to
  * register a service worker from a URL that redirected, and the
@@ -13,7 +13,7 @@
  * Code_v*.gs — bump all of them together on every ship.
  */
 
-var SW_VERSION = "1.7.2-beta14";
+var SW_VERSION = "1.7.2";
 var CACHE = "setlist-shell-" + SW_VERSION;
 
 /* The app shell: the page itself plus the two CDN scripts it pulls today.
@@ -60,6 +60,25 @@ self.addEventListener("fetch", function (event) {
   if (req.method !== "GET") return;
 
   var sameOrigin = new URL(req.url).origin === self.location.origin;
+
+  // config.js carries this site's backend /exec URL (beta vs production) and
+  // must never be served stale — network-first, updating the cached copy on
+  // success, falling back to cache only when genuinely offline. It is
+  // deliberately NOT in SHELL, so install never precaches an old one.
+  if (sameOrigin && new URL(req.url).pathname.endsWith("/config.js")) {
+    event.respondWith(
+      fetch(req).then(function (res) {
+        if (res && res.ok) {
+          var copy = res.clone();
+          caches.open(CACHE).then(function (c) { c.put(req, copy); });
+        }
+        return res;
+      }).catch(function () {
+        return caches.match(req, { ignoreVary: true, ignoreSearch: true });
+      })
+    );
+    return;
+  }
 
   if (req.mode === "navigate") {
     // App-shell: serve the cached page immediately (works with zero
