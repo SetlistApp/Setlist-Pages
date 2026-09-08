@@ -473,7 +473,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.7.2-beta11";
+const APP_VERSION = "1.7.2-beta12";
 const GS_SAVE_TIMEOUT_MS = 25e3;
 const GS_CALL_TIMEOUT_MS = 14e3;
 const GS_CALL_SYNC_TIMEOUT_MS = 7e3;
@@ -935,6 +935,7 @@ function App() {
         setSectionDefs(data.sectionDefs);
         setViews(data.views);
         let avid = prefs.activeViewId;
+        const hasStoredView = !!(prefs.activeViewId && data.views[prefs.activeViewId]);
         if (!avid || !data.views[avid]) avid = "view5";
         if (snapshot && snapshot.activeViewId && data.views[snapshot.activeViewId]) {
           avid = snapshot.activeViewId;
@@ -955,7 +956,7 @@ function App() {
           }
           setShowViewPicker(false);
         } else {
-          setShowViewPicker(true);
+          setShowViewPicker(!hasStoredView);
         }
       } catch (err) {
         console.error("could not load data at all", err);
@@ -1445,7 +1446,10 @@ function App() {
       onOpenTodoScreen: currentPersonField ? () => setShowTodoScreen(true) : null,
       lastSaveError,
       driveNeedsAttentionCount: driveReview.duplicates.length + driveReview.ambiguous.length,
-      onOpenDriveReview: () => setShowDriveReviewScreen(true)
+      onOpenDriveReview: () => setShowDriveReviewScreen(true),
+      views,
+      activeViewId,
+      onSelectView: selectView
     }
   ), showDriveReviewScreen && /* @__PURE__ */ React.createElement(
     DriveReviewScreen,
@@ -1645,11 +1649,22 @@ function ViewPickerModal({ views, currentViewId, onPick }) {
     );
   }))));
 }
-function Header({ isBeta, saveState, syncStatus, onRefresh, refreshing, manualRefreshing, onBeforeReload, openTodoCount, onOpenTodoScreen, lastSaveError, driveNeedsAttentionCount, onOpenDriveReview }) {
+function Header({ isBeta, saveState, syncStatus, onRefresh, refreshing, manualRefreshing, onBeforeReload, openTodoCount, onOpenTodoScreen, lastSaveError, driveNeedsAttentionCount, onOpenDriveReview, views, activeViewId, onSelectView }) {
   const [showMenu, setShowMenu] = useState(false);
   const [showZoomControl, setShowZoomControl] = useState(false);
   useCloseMenuOnOutsideClick(showMenu, () => setShowMenu(false));
-  return /* @__PURE__ */ React.createElement("div", { style: styles.header }, /* @__PURE__ */ React.createElement("div", { style: styles.marqueeWrap }, /* @__PURE__ */ React.createElement("img", { src: LOGO_DATA_URI, alt: "Bellafaire Brothers", style: styles.logoImg }), isBeta && /* @__PURE__ */ React.createElement("span", { style: styles.betaTag }, "BETA"), /* @__PURE__ */ React.createElement("span", { style: styles.headerVersion }, "v", APP_VERSION), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 1, marginLeft: 6 } }, /* @__PURE__ */ React.createElement(SaveIndicator, { state: saveState, compact: true, lastError: lastSaveError }), /* @__PURE__ */ React.createElement(SyncIndicator, { status: syncStatus, compact: true }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, onOpenTodoScreen && /* @__PURE__ */ React.createElement("button", { onClick: onOpenTodoScreen, style: styles.todoHeaderBtn, "aria-label": "To-do list" }, /* @__PURE__ */ React.createElement(Icon, { name: "listCheck", size: 17, color: "var(--dim)" }), openTodoCount > 0 && /* @__PURE__ */ React.createElement("span", { style: styles.todoHeaderBadge }, openTodoCount)), /* @__PURE__ */ React.createElement("button", { onClick: onRefresh, style: styles.refreshBtn, "aria-label": "Refresh", title: "Refresh from spreadsheet", disabled: refreshing }, /* @__PURE__ */ React.createElement(Icon, { name: "refresh", size: 15, color: "var(--dim)", className: manualRefreshing ? "spin" : "" })), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowMenu((v) => !v), style: styles.metaEllipsisBtn, "aria-label": "View and set options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 16, color: "var(--dim)" })), showMenu && /* @__PURE__ */ React.createElement("div", { style: styles.metaMenu }, /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { style: styles.header }, /* @__PURE__ */ React.createElement("div", { style: styles.marqueeWrap }, /* @__PURE__ */ React.createElement("img", { src: LOGO_DATA_URI, alt: "Bellafaire Brothers", style: styles.logoImg }), isBeta && /* @__PURE__ */ React.createElement("span", { style: styles.betaTag }, "BETA"), /* @__PURE__ */ React.createElement("span", { style: styles.headerVersion }, "v", APP_VERSION), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 1, marginLeft: 6 } }, /* @__PURE__ */ React.createElement(SaveIndicator, { state: saveState, compact: true, lastError: lastSaveError }), /* @__PURE__ */ React.createElement(SyncIndicator, { status: syncStatus, compact: true }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, onOpenTodoScreen && /* @__PURE__ */ React.createElement("button", { onClick: onOpenTodoScreen, style: styles.todoHeaderBtn, "aria-label": "To-do list" }, /* @__PURE__ */ React.createElement(Icon, { name: "listCheck", size: 17, color: "var(--dim)" }), openTodoCount > 0 && /* @__PURE__ */ React.createElement("span", { style: styles.todoHeaderBadge }, openTodoCount)), /* @__PURE__ */ React.createElement("button", { onClick: onRefresh, style: styles.refreshBtn, "aria-label": "Refresh", title: "Refresh from spreadsheet", disabled: refreshing }, /* @__PURE__ */ React.createElement(Icon, { name: "refresh", size: 15, color: "var(--dim)", className: manualRefreshing ? "spin" : "" })), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowMenu((v) => !v), style: styles.metaEllipsisBtn, "aria-label": "View and set options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 16, color: "var(--dim)" })), showMenu && /* @__PURE__ */ React.createElement("div", { style: styles.metaMenu }, views && activeViewId && onSelectView && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: styles.metaMenuLabel }, "Viewing as"), /* @__PURE__ */ React.createElement(
+    "select",
+    {
+      value: activeViewId,
+      onChange: (e) => {
+        onSelectView(e.target.value);
+        setShowMenu(false);
+      },
+      style: { ...styles.metaSelect, width: "100%", color: "var(--gold)", borderColor: "rgba(227,168,59,0.45)" }
+    },
+    VIEW_IDS.map((vid) => views[vid] ? /* @__PURE__ */ React.createElement("option", { key: vid, value: vid }, views[vid].name) : null)
+  ), /* @__PURE__ */ React.createElement("div", { style: styles.metaMenuDivider })), /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => {
