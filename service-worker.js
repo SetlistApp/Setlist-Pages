@@ -1,13 +1,9 @@
 /* Bellafaire Brothers Setlist — offline app-shell service worker.
  *
- * Active on the GitHub-Pages-hosted sites (beta: Setlist-Pages-BETA, prod:
- * Setlist-App-PR — see scripts/ship-pages.mjs). Still inert while the
- * app is served from Google Apps Script: Apps Script serves the page from
- * script.googleusercontent.com after a redirect, browsers refuse to
- * register a service worker from a URL that redirected, and the
- * registration snippet in Index_v2_shell.html skips itself on any
- * *.google.com host — so this file is never fetched or registered there,
- * same as before. See web/README.md.
+ * The app is served only from the GitHub Pages sites now (beta:
+ * Setlist-Pages-BETA, prod: Setlist-App-PR — see scripts/ship-pages.mjs);
+ * the Apps Script project is backend-only, its doGet just redirects here.
+ * See web/README.md.
  *
  * Keep SW_VERSION in lockstep with APP_VERSION in app_body_complete.jsx and
  * Code_v*.gs — bump all of them together on every ship.
