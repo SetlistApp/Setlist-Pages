@@ -477,14 +477,18 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.7.2";
+const APP_VERSION = "1.7.2.1";
+function versionBase(v) {
+  return String(v || "").split("-")[0].split(".").slice(0, 3).join(".");
+}
 const GS_SAVE_TIMEOUT_MS = 25e3;
 const GS_CALL_TIMEOUT_MS = 14e3;
 const GS_CALL_SYNC_TIMEOUT_MS = 7e3;
+const FETCH_TRANSPORT_EXTRA_MS = 3e4;
 const GAS_DOPOST_URL = "https://script.google.com/macros/s/AKfycbw-JuS02Bqwm1rav03CtJ2TVdx1QVHDUS6MUjPBlUO_mOog8B-tQOHqsLAgXxejHsB8gg/exec";
 function gsCall(fnName, arg, timeoutMs) {
-  const effectiveTimeout = timeoutMs || GS_CALL_TIMEOUT_MS;
   const hasGoogleScriptRun = !!(window.google && window.google.script && window.google.script.run);
+  const effectiveTimeout = (timeoutMs || GS_CALL_TIMEOUT_MS) + (hasGoogleScriptRun ? 0 : FETCH_TRANSPORT_EXTRA_MS);
   return new Promise((resolve, reject) => {
     let settled = false;
     const timeoutId = setTimeout(() => {
@@ -1016,7 +1020,7 @@ function App() {
         }
         setSaveState(data.offline ? "offline" : "idle");
         setSyncStatus(data.offline ? "error" : "synced");
-        if (!data.offline && data.version && data.version !== APP_VERSION) {
+        if (!data.offline && data.version && versionBase(data.version) !== versionBase(APP_VERSION)) {
           setNewVersionAvailable(true);
         }
         if (!usedCache) {
@@ -1126,13 +1130,14 @@ function App() {
       );
       setSectionDefs(data.sectionDefs);
       setViews((prev) => data.views && Object.keys(data.views).length ? data.views : prev);
-      if (!data.offline && data.version && data.version !== APP_VERSION) {
+      if (!data.offline && data.version && versionBase(data.version) !== versionBase(APP_VERSION)) {
         setNewVersionAvailable(true);
       }
       if (data.offline) {
         reportSyncFailure();
       } else {
         reportSyncSuccess();
+        if (loadError) setLoadError(false);
         retryAllPendingSaves();
         if (changed) {
           setSyncStatus("syncing");
