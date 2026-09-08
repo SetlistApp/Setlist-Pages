@@ -372,7 +372,8 @@ function useArmedDelete() {
   return [armedId, handleDeleteClick];
 }
 function forceFullReload() {
-  const target = typeof window.APP_URL === "string" && window.APP_URL && window.APP_URL.indexOf("PLACEHOLDER") === -1 ? window.APP_URL : null;
+  const base = typeof window.APP_URL === "string" && window.APP_URL && window.APP_URL.indexOf("PLACEHOLDER") === -1 ? window.APP_URL : null;
+  const target = base ? base + (base.indexOf("?") === -1 ? "?" : "&") + "_v=" + Date.now() : null;
   try {
     if (window.top && window.top !== window) {
       if (target) window.top.location.href = target;
@@ -472,7 +473,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.7.2-beta9";
+const APP_VERSION = "1.7.2-beta11";
 const GS_SAVE_TIMEOUT_MS = 25e3;
 const GS_CALL_TIMEOUT_MS = 14e3;
 const GS_CALL_SYNC_TIMEOUT_MS = 7e3;
@@ -1398,7 +1399,7 @@ function App() {
     const q = stripPunctuationForSearch(query.trim().toLowerCase());
     if (!q) return [];
     return poolSongs.filter(
-      (s) => stripPunctuationForSearch(s.title.toLowerCase()).includes(q) || stripPunctuationForSearch((s.key || "").toLowerCase()).includes(q) || stripPunctuationForSearch((s.features || "").toLowerCase()).includes(q)
+      (s) => stripPunctuationForSearch(s.title.toLowerCase()).includes(q) || stripPunctuationForSearch((s.key || "").toLowerCase()).includes(q) || stripPunctuationForSearch((s.features || "").toLowerCase()).includes(q) || stripPunctuationForSearch((s.alexInstrument || "").toLowerCase()).includes(q)
     );
   }, [poolSongs, query]);
   const navIds = useMemo(() => {
@@ -1714,7 +1715,8 @@ function formatSetlistDate(iso) {
   }
   if (isNaN(d.getTime())) return "";
   const dow = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
-  return dow + " " + (d.getMonth() + 1) + "/" + d.getDate();
+  const yy = String(d.getFullYear()).slice(-2);
+  return dow + " " + (d.getMonth() + 1) + "/" + d.getDate() + "/" + yy;
 }
 function SetlistBar({ setlist, counts, sectionOrder, setBreaks, expanded, onToggle, onSwitch, onEdit }) {
   const name = setlist ? setlist.venue || setlist.name || "Untitled show" : "No show selected";
@@ -1928,12 +1930,12 @@ function NotInShowView({ songs, order, onOpen, onAdd }) {
   return /* @__PURE__ */ React.createElement("div", { style: styles.list }, order.map((id) => {
     const s = songsById[id];
     if (!s) return null;
-    return /* @__PURE__ */ React.createElement("div", { key: id, style: styles.row }, /* @__PURE__ */ React.createElement("button", { onClick: () => onOpen(id), style: { ...styles.rowMain, padding: "4px 2px" } }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.dot, background: getDotColor(s) } }), /* @__PURE__ */ React.createElement(SongTitleAndFeatures, { song: s }), s.draft && /* @__PURE__ */ React.createElement("span", { style: styles.draftPill }, "Draft"), s.key && /* @__PURE__ */ React.createElement("span", { style: styles.rowKey }, s.key)), onAdd && /* @__PURE__ */ React.createElement("button", { onClick: () => onAdd(id), style: styles.nisAddBtn, "aria-label": "Add to setlist" }, "Add"));
+    return /* @__PURE__ */ React.createElement("div", { key: id, style: styles.row }, /* @__PURE__ */ React.createElement("button", { onClick: () => onOpen(id), style: { ...styles.rowMain, padding: "4px 2px" } }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.dot, background: getDotColor(s) } }), /* @__PURE__ */ React.createElement(SongTitleAndFeatures, { song: s }), s.key && /* @__PURE__ */ React.createElement("span", { style: styles.rowKey }, s.key)), onAdd && /* @__PURE__ */ React.createElement("button", { onClick: () => onAdd(id), style: styles.nisAddBtn, "aria-label": "Add to setlist" }, "Add"));
   }), order.length === 0 && /* @__PURE__ */ React.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ React.createElement(Icon, { name: "music", size: 26, color: "var(--line)" }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, "Every song is in this setlist.")));
 }
 function AllSongsView({ songs, onOpen }) {
   const sorted = useMemo(() => [...songs].sort((a, b) => a.title.localeCompare(b.title, void 0, { sensitivity: "base" })), [songs]);
-  return /* @__PURE__ */ React.createElement("div", { style: styles.list }, sorted.map((s) => /* @__PURE__ */ React.createElement("button", { key: s.id, onClick: () => onOpen(s.id), style: styles.row }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.dot, background: getDotColor(s) } }), /* @__PURE__ */ React.createElement(SongTitleAndFeatures, { song: s }), s.draft && /* @__PURE__ */ React.createElement("span", { style: styles.draftPill }, "Draft"), s.key && /* @__PURE__ */ React.createElement("span", { style: styles.rowKey }, s.key))), sorted.length === 0 && /* @__PURE__ */ React.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ React.createElement(Icon, { name: "music", size: 26, color: "var(--line)" }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, "No songs yet.")));
+  return /* @__PURE__ */ React.createElement("div", { style: styles.list }, sorted.map((s) => /* @__PURE__ */ React.createElement("button", { key: s.id, onClick: () => onOpen(s.id), style: styles.row }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.dot, background: getDotColor(s) } }), /* @__PURE__ */ React.createElement(SongTitleAndFeatures, { song: s }), s.key && /* @__PURE__ */ React.createElement("span", { style: styles.rowKey }, s.key))), sorted.length === 0 && /* @__PURE__ */ React.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ React.createElement(Icon, { name: "music", size: 26, color: "var(--line)" }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, "No songs yet.")));
 }
 function SearchResultsList({ songs, onOpen }) {
   return /* @__PURE__ */ React.createElement("div", { style: styles.list }, songs.map((s) => /* @__PURE__ */ React.createElement("button", { key: s.id, onClick: () => onOpen(s.id), style: styles.row }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.dot, background: getDotColor(s) } }), /* @__PURE__ */ React.createElement(SongTitleAndFeatures, { song: s }), s.key && /* @__PURE__ */ React.createElement("span", { style: styles.rowKey }, s.key))), songs.length === 0 && /* @__PURE__ */ React.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ React.createElement(Icon, { name: "music", size: 26, color: "var(--line)" }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, "No songs match your search.")));
@@ -1970,9 +1972,14 @@ function TodoList({ items, onChange, onFieldBlur }) {
     );
     if (stale.size > 0) onChange(list.filter((it) => !stale.has(it.id)));
   }, []);
-  const visible = useMemo(() => {
-    return list.filter((it) => !it.done || recentlyCompleted.has(it.id) || showCompleted);
-  }, [list, showCompleted, recentlyCompleted]);
+  const activeItems = useMemo(
+    () => list.filter((it) => !it.done || recentlyCompleted.has(it.id)),
+    [list, recentlyCompleted]
+  );
+  const completedItems = useMemo(
+    () => list.filter((it) => it.done && !recentlyCompleted.has(it.id)),
+    [list, recentlyCompleted]
+  );
   function toggleDone(item) {
     const nextDone = !item.done;
     onChange(list.map((it) => it.id === item.id ? { ...it, done: nextDone, completedAt: nextDone ? (/* @__PURE__ */ new Date()).toISOString() : null } : it));
@@ -2043,7 +2050,7 @@ function TodoList({ items, onChange, onFieldBlur }) {
   useEffect(() => {
     function handleMove(e) {
       if (dragging.current === null) return;
-      visible.forEach((it) => {
+      activeItems.forEach((it) => {
         const el = rowRefs.current[it.id];
         if (!el) return;
         el.style.borderTopColor = "transparent";
@@ -2076,7 +2083,7 @@ function TodoList({ items, onChange, onFieldBlur }) {
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
     };
-  }, [list, visible]);
+  }, [list, activeItems]);
   function swipeHandlers(id) {
     return {
       onPointerDown: (e) => {
@@ -2099,39 +2106,47 @@ function TodoList({ items, onChange, onFieldBlur }) {
       }
     };
   }
-  const hiddenCount = list.filter((it) => it.done && !recentlyCompleted.has(it.id)).length;
-  return /* @__PURE__ */ React.createElement("div", { style: styles.todoList }, visible.map((it) => /* @__PURE__ */ React.createElement("div", { key: it.id, ref: setRowRef(it.id), style: styles.todoRow }, /* @__PURE__ */ React.createElement("div", { ref: setRowRef(it.id + "-inner"), style: styles.todoRowInner, ...swipeHandlers(it.id) }, /* @__PURE__ */ React.createElement(
-    "span",
-    {
-      onClick: () => toggleDone(it),
-      style: { ...styles.todoCheck, ...it.done ? styles.todoCheckDone : {} },
-      role: "checkbox",
-      "aria-checked": it.done,
-      "aria-label": it.text
-    },
-    it.done && /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 13, color: "var(--bg)" })
-  ), /* @__PURE__ */ React.createElement(
-    "input",
-    {
-      ref: (el) => {
-        if (el) textInputRefs.current[it.id] = el;
-        else delete textInputRefs.current[it.id];
+  const hiddenCount = completedItems.length;
+  function renderRow(it, draggable) {
+    return /* @__PURE__ */ React.createElement("div", { key: it.id, ref: setRowRef(it.id), style: styles.todoRow }, /* @__PURE__ */ React.createElement("div", { ref: setRowRef(it.id + "-inner"), style: styles.todoRowInner, ...swipeHandlers(it.id) }, /* @__PURE__ */ React.createElement(
+      "span",
+      {
+        onClick: () => toggleDone(it),
+        style: { ...styles.todoCheck, ...it.done ? styles.todoCheckDone : {} },
+        role: "checkbox",
+        "aria-checked": it.done,
+        "aria-label": it.text
       },
-      value: it.text,
-      onChange: (e) => updateText(it.id, e.target.value),
-      onKeyDown: (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          insertAfter(it.id);
-        }
-      },
-      onBlur: () => {
-        if (!it.text.trim()) deleteItem(it.id);
-        else if (onFieldBlur) onFieldBlur();
-      },
-      style: { ...styles.todoTextInput, ...it.done ? styles.todoTextDone : {} }
-    }
-  ), /* @__PURE__ */ React.createElement("span", { onPointerDown: startDrag(it.id), style: styles.todoDragHandle, "data-swipe-ignore": "true" }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 14, color: "var(--dim)" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => deleteItem(it.id), style: styles.todoDeleteBtn }, "Delete"))), /* @__PURE__ */ React.createElement("button", { onClick: addItem, style: styles.todoAddBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 15, color: "var(--dim)" }), "Add to-do"), hiddenCount > 0 && /* @__PURE__ */ React.createElement("button", { onClick: () => setShowCompleted((v) => !v), style: styles.todoShowCompleted }, showCompleted ? "Hide completed" : `Show completed (${hiddenCount})`));
+      it.done && /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 13, color: "var(--bg)" })
+    ), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        ref: (el) => {
+          if (el) textInputRefs.current[it.id] = el;
+          else delete textInputRefs.current[it.id];
+        },
+        value: it.text,
+        onChange: (e) => updateText(it.id, e.target.value),
+        onKeyDown: (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            if (!it.text.trim()) {
+              deleteItem(it.id);
+              if (e.target && e.target.blur) e.target.blur();
+            } else {
+              insertAfter(it.id);
+            }
+          }
+        },
+        onBlur: () => {
+          if (!it.text.trim()) deleteItem(it.id);
+          else if (onFieldBlur) onFieldBlur();
+        },
+        style: { ...styles.todoTextInput, ...it.done ? styles.todoTextDone : {} }
+      }
+    ), draggable && /* @__PURE__ */ React.createElement("span", { onPointerDown: startDrag(it.id), style: styles.todoDragHandle, "data-swipe-ignore": "true" }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 14, color: "var(--dim)" }))), /* @__PURE__ */ React.createElement("button", { onClick: () => deleteItem(it.id), style: styles.todoDeleteBtn }, "Delete"));
+  }
+  return /* @__PURE__ */ React.createElement("div", { style: styles.todoList }, activeItems.map((it) => renderRow(it, true)), /* @__PURE__ */ React.createElement("button", { onClick: addItem, style: styles.todoAddBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 15, color: "var(--dim)" }), "Add to-do"), hiddenCount > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowCompleted((v) => !v), style: styles.todoShowCompleted }, showCompleted ? "Hide completed" : `Show completed (${hiddenCount})`), showCompleted && /* @__PURE__ */ React.createElement("div", { style: styles.todoCompletedGroup }, /* @__PURE__ */ React.createElement("div", { style: styles.todoCompletedLabel }, "Completed"), completedItems.map((it) => renderRow(it, false)))));
 }
 function Metronome({ bpm, onSetBpm }) {
   const [running, setRunning] = useState(true);
@@ -2992,8 +3007,9 @@ function AllSongsTodoScreen({ songs, personName, personField, onUpdateSong, onCl
       }
     });
   }, []);
-  const visible = useMemo(() => flat.filter((it) => !it.done || recentlyCompleted.has(it.id) || showCompleted), [flat, showCompleted, recentlyCompleted]);
-  const hiddenCount = flat.filter((it) => it.done && !recentlyCompleted.has(it.id)).length;
+  const activeItems = useMemo(() => flat.filter((it) => !it.done || recentlyCompleted.has(it.id)), [flat, recentlyCompleted]);
+  const completedItems = useMemo(() => flat.filter((it) => it.done && !recentlyCompleted.has(it.id)), [flat, recentlyCompleted]);
+  const hiddenCount = completedItems.length;
   function patchItem(item, updater) {
     const song = songs.find((s) => s.id === item.songId);
     if (!song) return;
@@ -3051,7 +3067,7 @@ function AllSongsTodoScreen({ songs, personName, personField, onUpdateSong, onCl
   function startDrag(id) {
     return (e) => {
       dragging.current = id;
-      hoverIndex.current = visible.findIndex((it) => it.id === id);
+      hoverIndex.current = activeItems.findIndex((it) => it.id === id);
       e.preventDefault();
       e.stopPropagation();
     };
@@ -3059,7 +3075,7 @@ function AllSongsTodoScreen({ songs, personName, personField, onUpdateSong, onCl
   useEffect(() => {
     function handleMove(e) {
       if (dragging.current === null) return;
-      visible.forEach((it, i) => {
+      activeItems.forEach((it, i) => {
         const el = outerRowRefs.current[it.id];
         if (!el) return;
         el.style.borderTopColor = "transparent";
@@ -3072,7 +3088,7 @@ function AllSongsTodoScreen({ songs, personName, personField, onUpdateSong, onCl
     }
     function handleUp() {
       if (dragging.current === null) return;
-      const fromIndex = visible.findIndex((it) => it.id === dragging.current);
+      const fromIndex = activeItems.findIndex((it) => it.id === dragging.current);
       const toIndex = hoverIndex.current;
       dragging.current = null;
       hoverIndex.current = null;
@@ -3080,7 +3096,7 @@ function AllSongsTodoScreen({ songs, personName, personField, onUpdateSong, onCl
         if (el) el.style.borderTopColor = "transparent";
       });
       if (toIndex === null || toIndex === fromIndex || fromIndex === -1) return;
-      const reordered = [...visible];
+      const reordered = [...activeItems];
       const [moved] = reordered.splice(fromIndex, 1);
       reordered.splice(toIndex > fromIndex ? toIndex - 1 : toIndex, 0, moved);
       const bySong = {};
@@ -3106,20 +3122,9 @@ function AllSongsTodoScreen({ songs, personName, personField, onUpdateSong, onCl
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
     };
-  }, [visible, songs, personField]);
-  return /* @__PURE__ */ React.createElement(
-    "div",
-    {
-      style: {
-        ...styles.todoScreenOverlay,
-        transform: `translateX(${swipeX}px)`,
-        transition: swiping ? "none" : "transform 0.25s ease",
-        boxShadow: swipeX > 0 ? "-8px 0 24px rgba(0,0,0,0.35)" : "none"
-      },
-      onTouchStart: handleSwipeStart
-    },
-    /* @__PURE__ */ React.createElement("div", { style: styles.todoScreenHeader }, /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: styles.todoScreenBack, "aria-label": "Close" }, /* @__PURE__ */ React.createElement(Icon, { name: "chevronLeft", size: 18, color: "var(--dim)" })), /* @__PURE__ */ React.createElement("div", { style: styles.todoScreenTitle }, personName, " To-Do All Songs")),
-    /* @__PURE__ */ React.createElement("div", { style: styles.todoScreenBody }, visible.map((it) => /* @__PURE__ */ React.createElement(
+  }, [activeItems, songs, personField]);
+  function renderTodoRow(it, draggable) {
+    return /* @__PURE__ */ React.createElement(
       "div",
       {
         key: it.id,
@@ -3158,10 +3163,24 @@ function AllSongsTodoScreen({ songs, personName, personField, onUpdateSong, onCl
           },
           it.songTitle
         ), /* @__PURE__ */ React.createElement("div", { style: { ...styles.todoTextInput, ...it.done ? styles.todoTextDone : {}, fontSize: 13, lineHeight: 1.4, padding: 0, marginTop: 3 } }, it.text)),
-        /* @__PURE__ */ React.createElement("span", { onPointerDown: startDrag(it.id), style: styles.todoDragHandle, "data-swipe-ignore": "true" }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 14, color: "var(--dim)" }))
+        draggable && /* @__PURE__ */ React.createElement("span", { onPointerDown: startDrag(it.id), style: styles.todoDragHandle, "data-swipe-ignore": "true" }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 14, color: "var(--dim)" }))
       ),
       /* @__PURE__ */ React.createElement("button", { onClick: () => deleteItem(it), style: styles.todoDeleteBtn }, "Delete")
-    )), visible.length === 0 && /* @__PURE__ */ React.createElement("div", { style: styles.todoScreenEmpty }, "Nothing here."), hiddenCount > 0 && /* @__PURE__ */ React.createElement("button", { onClick: () => setShowCompleted((v) => !v), style: styles.todoShowCompleted }, showCompleted ? "Hide completed" : `Show completed (${hiddenCount})`))
+    );
+  }
+  return /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      style: {
+        ...styles.todoScreenOverlay,
+        transform: `translateX(${swipeX}px)`,
+        transition: swiping ? "none" : "transform 0.25s ease",
+        boxShadow: swipeX > 0 ? "-8px 0 24px rgba(0,0,0,0.35)" : "none"
+      },
+      onTouchStart: handleSwipeStart
+    },
+    /* @__PURE__ */ React.createElement("div", { style: styles.todoScreenHeader }, /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: styles.todoScreenBack, "aria-label": "Close" }, /* @__PURE__ */ React.createElement(Icon, { name: "chevronLeft", size: 18, color: "var(--dim)" })), /* @__PURE__ */ React.createElement("div", { style: styles.todoScreenTitle }, personName, " To-Do All Songs")),
+    /* @__PURE__ */ React.createElement("div", { style: styles.todoScreenBody }, activeItems.map((it) => renderTodoRow(it, true)), activeItems.length === 0 && /* @__PURE__ */ React.createElement("div", { style: styles.todoScreenEmpty }, "Nothing here."), hiddenCount > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowCompleted((v) => !v), style: styles.todoShowCompleted }, showCompleted ? "Hide completed" : `Show completed (${hiddenCount})`), showCompleted && /* @__PURE__ */ React.createElement("div", { style: styles.todoCompletedGroup }, /* @__PURE__ */ React.createElement("div", { style: styles.todoCompletedLabel }, "Completed"), completedItems.map((it) => renderTodoRow(it, false)))))
   );
 }
 function SongDetail({
@@ -3386,14 +3405,7 @@ function SongDetail({
         },
         style: styles.metaSelect
       }
-    ) : /* @__PURE__ */ React.createElement("select", { value: viewProfiles.activeViewId, onChange: (e) => onSelectView(e.target.value), style: styles.metaSelect }, VIEW_IDS.map((vid) => /* @__PURE__ */ React.createElement("option", { key: vid, value: vid }, viewProfiles.views[vid].name))), /* @__PURE__ */ React.createElement("button", { onClick: () => setRenamingView((v) => !v), style: styles.metaIconBtn, "aria-label": "Rename view" }, /* @__PURE__ */ React.createElement(Icon, { name: "pencil", size: 13, color: "var(--dim)" }))), /* @__PURE__ */ React.createElement("div", { style: styles.metaMenuLabel }, "Draft"), /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        onClick: () => onChange({ draft: song.draft ? "" : "Y" }),
-        style: { ...styles.metaSelect, textAlign: "left", cursor: "pointer", color: song.draft ? "var(--yellow)" : "var(--dim)" }
-      },
-      song.draft ? "\u2713 Still being written" : "Mark as a draft"
-    ), /* @__PURE__ */ React.createElement("div", { style: styles.metaMenuDivider }), /* @__PURE__ */ React.createElement(
+    ) : /* @__PURE__ */ React.createElement("select", { value: viewProfiles.activeViewId, onChange: (e) => onSelectView(e.target.value), style: styles.metaSelect }, VIEW_IDS.map((vid) => /* @__PURE__ */ React.createElement("option", { key: vid, value: vid }, viewProfiles.views[vid].name))), /* @__PURE__ */ React.createElement("button", { onClick: () => setRenamingView((v) => !v), style: styles.metaIconBtn, "aria-label": "Rename view" }, /* @__PURE__ */ React.createElement(Icon, { name: "pencil", size: 13, color: "var(--dim)" }))), /* @__PURE__ */ React.createElement("div", { style: styles.metaMenuDivider }), /* @__PURE__ */ React.createElement(
       "button",
       {
         onClick: () => {
@@ -3671,7 +3683,6 @@ const rawStyles = {
   rowKey: { fontFamily: "var(--mono)", fontSize: 12.5, color: "var(--gold)", background: "rgba(227,168,59,0.1)", padding: "3px 8px", borderRadius: 6, flexShrink: 0 },
   rowSectionTag: { fontFamily: "var(--body)", fontSize: 10.5, color: "var(--dim)", border: "1px solid var(--line)", borderRadius: 6, padding: "2px 6px", flexShrink: 0 },
   // ---- 1.7.2-beta2 setlist bar + sheets ----
-  draftPill: { fontFamily: "var(--display)", fontWeight: 600, fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--yellow)", border: "1px solid rgba(232,197,71,0.45)", borderRadius: 5, padding: "2px 6px", flexShrink: 0 },
   nisAddBtn: { fontFamily: "var(--display)", fontWeight: 600, fontSize: 10.5, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--gold)", background: "none", border: "1px solid rgba(227,168,59,0.45)", borderRadius: 7, padding: "6px 12px", cursor: "pointer", flexShrink: 0, marginRight: 6 },
   slRemoveBtn: { background: "none", border: "none", cursor: "pointer", padding: "4px 8px", display: "flex", alignItems: "center", flexShrink: 0 },
   slBar: { margin: "0 16px 10px", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 11, overflow: "hidden" },
@@ -3824,6 +3835,8 @@ const rawStyles = {
   todoDragHandle: { color: "var(--dim)", cursor: "grab", display: "flex", touchAction: "none", flexShrink: 0 },
   todoDeleteBtn: { position: "absolute", top: 0, right: 0, height: "100%", width: 70, background: "var(--needs)", color: "#fff", border: "none", fontSize: 13 },
   todoShowCompleted: { background: "none", border: "none", color: "var(--gold)", fontSize: 12.5, padding: "9px 2px", textAlign: "left" },
+  todoCompletedGroup: { display: "flex", flexDirection: "column", borderTop: "1px solid var(--line)", marginTop: 2, paddingTop: 6 },
+  todoCompletedLabel: { fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--dim)", fontFamily: "var(--display)", fontWeight: 600, padding: "2px 2px 6px" },
   todoAddBtn: { display: "flex", alignItems: "center", gap: 6, justifyContent: "center", background: "none", border: "1px dashed var(--line)", color: "var(--dim)", borderRadius: 7, padding: "9px 12px", fontSize: 13, cursor: "pointer", marginTop: 6, width: "100%" },
   todoInlineAddBtn: { display: "flex", alignItems: "center", gap: 5, background: "none", border: "1px dashed var(--line)", color: "var(--dim)", borderRadius: 6, padding: "5px 10px", fontSize: 12.5, cursor: "pointer" },
   todoScreenOverlay: { position: "absolute", inset: 0, background: "var(--bg)", display: "flex", flexDirection: "column", touchAction: "pan-y" },
