@@ -473,7 +473,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.7.2-beta13";
+const APP_VERSION = "1.7.2-beta14";
 const GS_SAVE_TIMEOUT_MS = 25e3;
 const GS_CALL_TIMEOUT_MS = 14e3;
 const GS_CALL_SYNC_TIMEOUT_MS = 7e3;
@@ -916,53 +916,131 @@ function App() {
         }
       } catch (e) {
       }
+      let usedCache = false;
+      try {
+        const cacheRaw = localStorage.getItem(CACHE_KEY);
+        if (cacheRaw) {
+          const cp = JSON.parse(cacheRaw);
+          if (cp && Array.isArray(cp.songs) && cp.songs.length && cp.sectionDefs && cp.views) {
+            const cd = { ...cp, songs: cp.songs.map(normalizeSong) };
+            if (!cancelled) {
+              setIsBeta(!!cd.isBeta);
+              setSongs(cd.songs);
+              setSectionOrder(cd.sectionOrder);
+              setSongOrder(cd.songOrder);
+              const cSetlists = Array.isArray(cd.setlists) ? cd.setlists : [];
+              setSetlists(cSetlists);
+              const cDefaultId = cd.defaultSetlistId && cSetlists.some((sl) => sl.id === cd.defaultSetlistId) ? cd.defaultSetlistId : null;
+              setDefaultSetlistId(cDefaultId);
+              let asid = prefs.activeSetlistId;
+              if (!asid || !cSetlists.some((sl) => sl.id === asid)) {
+                asid = cDefaultId || (cSetlists.length ? cSetlists[0].id : null);
+              }
+              setActiveSetlistId(asid);
+              setSectionDefs(cd.sectionDefs);
+              setViews(cd.views);
+              let avid = prefs.activeViewId;
+              const hasStoredView = !!(prefs.activeViewId && cd.views[prefs.activeViewId]);
+              if (!avid || !cd.views[avid]) avid = "view5";
+              if (snapshot && snapshot.activeViewId && cd.views[snapshot.activeViewId]) {
+                avid = snapshot.activeViewId;
+              }
+              setActiveViewId(avid);
+              setArrColPct(prefs.arrColPct);
+              setSaveState("idle");
+              setSyncStatus("syncing");
+              if (snapshot) {
+                if (snapshot.activeTab) setActiveTab(snapshot.activeTab);
+                const songStillExists = snapshot.openId && cd.songs.some((s) => s.id === snapshot.openId);
+                if (songStillExists) {
+                  setOpenId(snapshot.openId);
+                  setPendingRestore({ collapsed: snapshot.collapsed, scrollTop: snapshot.scrollTop });
+                }
+                setShowViewPicker(false);
+              } else {
+                setShowViewPicker(!hasStoredView);
+              }
+              setLoaded(true);
+              usedCache = true;
+            }
+          }
+        }
+      } catch (e) {
+      }
       try {
         const data = await loadAllData();
         if (cancelled) return;
         setIsBeta(!!data.isBeta);
-        setSongs(data.songs);
+        if (usedCache) {
+          const merged = data.songs.map((s) => {
+            const t = songSaveTimers.current[s.id];
+            return t && t.pendingPatch ? { ...s, ...t.pendingPatch } : s;
+          });
+          setSongs(merged);
+        } else {
+          setSongs(data.songs);
+        }
         setSectionOrder(data.sectionOrder);
         setSongOrder(data.songOrder);
         const loadedSetlists = Array.isArray(data.setlists) ? data.setlists : [];
         setSetlists(loadedSetlists);
         const loadedDefaultId = data.defaultSetlistId && loadedSetlists.some((sl) => sl.id === data.defaultSetlistId) ? data.defaultSetlistId : null;
         setDefaultSetlistId(loadedDefaultId);
-        let asid = prefs.activeSetlistId;
-        if (!asid || !loadedSetlists.some((sl) => sl.id === asid)) {
-          asid = loadedDefaultId || (loadedSetlists.length ? loadedSetlists[0].id : null);
+        if (usedCache) {
+          setActiveSetlistId(
+            (cur) => cur && loadedSetlists.some((sl) => sl.id === cur) ? cur : loadedDefaultId || (loadedSetlists[0] ? loadedSetlists[0].id : null)
+          );
+        } else {
+          let asid = prefs.activeSetlistId;
+          if (!asid || !loadedSetlists.some((sl) => sl.id === asid)) {
+            asid = loadedDefaultId || (loadedSetlists.length ? loadedSetlists[0].id : null);
+          }
+          setActiveSetlistId(asid);
         }
-        setActiveSetlistId(asid);
         setSectionDefs(data.sectionDefs);
-        setViews(data.views);
-        let avid = prefs.activeViewId;
-        const hasStoredView = !!(prefs.activeViewId && data.views[prefs.activeViewId]);
-        if (!avid || !data.views[avid]) avid = "view5";
-        if (snapshot && snapshot.activeViewId && data.views[snapshot.activeViewId]) {
-          avid = snapshot.activeViewId;
+        setViews((prev) => usedCache ? data.views && Object.keys(data.views).length ? data.views : prev : data.views);
+        if (!usedCache) {
+          let avid = prefs.activeViewId;
+          const hasStoredView = !!(prefs.activeViewId && data.views[prefs.activeViewId]);
+          if (!avid || !data.views[avid]) avid = "view5";
+          if (snapshot && snapshot.activeViewId && data.views[snapshot.activeViewId]) {
+            avid = snapshot.activeViewId;
+          }
+          setActiveViewId(avid);
+          setArrColPct(prefs.arrColPct);
         }
-        setActiveViewId(avid);
-        setArrColPct(prefs.arrColPct);
         setSaveState(data.offline ? "offline" : "idle");
         setSyncStatus(data.offline ? "error" : "synced");
         if (!data.offline && data.version && data.version !== APP_VERSION) {
           setNewVersionAvailable(true);
         }
-        if (snapshot) {
-          if (snapshot.activeTab) setActiveTab(snapshot.activeTab);
-          const songStillExists = snapshot.openId && data.songs.some((s) => s.id === snapshot.openId);
-          if (songStillExists) {
-            setOpenId(snapshot.openId);
-            setPendingRestore({ collapsed: snapshot.collapsed, scrollTop: snapshot.scrollTop });
+        if (!usedCache) {
+          if (snapshot) {
+            if (snapshot.activeTab) setActiveTab(snapshot.activeTab);
+            const songStillExists = snapshot.openId && data.songs.some((s) => s.id === snapshot.openId);
+            if (songStillExists) {
+              setOpenId(snapshot.openId);
+              setPendingRestore({ collapsed: snapshot.collapsed, scrollTop: snapshot.scrollTop });
+            }
+            setShowViewPicker(false);
+          } else {
+            const hasStoredView = !!(prefs.activeViewId && data.views[prefs.activeViewId]);
+            setShowViewPicker(!hasStoredView);
           }
-          setShowViewPicker(false);
-        } else {
-          setShowViewPicker(!hasStoredView);
         }
       } catch (err) {
-        console.error("could not load data at all", err);
-        if (!cancelled) setLoadError(true);
+        if (usedCache) {
+          console.error("background refresh after cache load failed", err);
+          if (!cancelled) {
+            setSaveState("offline");
+            setSyncStatus("error");
+          }
+        } else {
+          console.error("could not load data at all", err);
+          if (!cancelled) setLoadError(true);
+        }
       }
-      if (!cancelled) setLoaded(true);
+      if (!cancelled && !usedCache) setLoaded(true);
     })();
     return () => {
       cancelled = true;
