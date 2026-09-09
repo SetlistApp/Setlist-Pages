@@ -481,7 +481,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.7.3.2-beta1";
+const APP_VERSION = "1.7.3.2-beta2";
 function versionBase(v) {
   return String(v || "").split("-")[0].split(".").slice(0, 3).join(".");
 }
@@ -1025,7 +1025,7 @@ function App() {
         }
         setSaveState(data.offline ? "offline" : "idle");
         setSyncStatus(data.offline ? "error" : "synced");
-        if (!data.offline && data.version && versionBase(data.version) !== versionBase(APP_VERSION)) {
+        if (!data.offline && data.version && data.version !== APP_VERSION) {
           setNewVersionAvailable(true);
         }
         if (!usedCache) {
@@ -1117,7 +1117,7 @@ function App() {
       );
       setSectionDefs(data.sectionDefs);
       setViews((prev) => data.views && Object.keys(data.views).length ? data.views : prev);
-      if (!data.offline && data.version && versionBase(data.version) !== versionBase(APP_VERSION)) {
+      if (!data.offline && data.version && data.version !== APP_VERSION) {
         setNewVersionAvailable(true);
       }
       if (data.offline) {
