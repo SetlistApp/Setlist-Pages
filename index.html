@@ -481,7 +481,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.7.3-beta6";
+const APP_VERSION = "1.7.3-beta7";
 function versionBase(v) {
   return String(v || "").split("-")[0].split(".").slice(0, 3).join(".");
 }
@@ -676,6 +676,8 @@ function App() {
   const [showViewPicker, setShowViewPicker] = useState(false);
   const [activeTab, setActiveTab] = useState("Setlist");
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef(null);
   const [openId, setOpenId] = useState(null);
   const [pendingRestore, setPendingRestore] = useState(null);
   const songUiStateRef = useRef({ collapsed: null, scrollTop: 0 });
@@ -1076,28 +1078,6 @@ function App() {
     }
     setRefreshing(true);
     if (isManual) setManualRefreshing(true);
-    if (isManual) {
-      try {
-        const scanResult = await scanDriveLinksRemote();
-        if (scanResult && scanResult.error) {
-          alert("Drive scan problem:\n\n" + scanResult.error);
-        } else if (scanResult && scanResult.configured) {
-          setDriveReview({
-            duplicates: scanResult.duplicates || [],
-            ambiguous: scanResult.ambiguous || [],
-            unmatched: scanResult.unmatched || [],
-            applied: scanResult.applied || 0,
-            alreadyLinked: scanResult.alreadyLinked || 0
-          });
-        } else {
-          alert("No Drive folder is saved yet \u2014 open Drive folder settings and save the folder link again.");
-        }
-      } catch (err) {
-        console.error("Drive scan failed", err);
-        const detail = err && err.message || String(err);
-        alert("Drive scan failed:\n\n" + detail);
-      }
-    }
     try {
       const data = await loadAllData(true);
       if (hasPendingWork()) {
@@ -1531,7 +1511,15 @@ function App() {
       onOpenDriveReview: () => setShowDriveReviewScreen(true),
       views,
       activeViewId,
-      onSelectView: selectView
+      onSelectView: selectView,
+      searchOpen,
+      onToggleSearch: () => {
+        setSearchOpen((v) => {
+          if (!v) setTimeout(() => searchInputRef.current && searchInputRef.current.focus(), 50);
+          else setQuery("");
+          return !v;
+        });
+      }
     }
   ), showDriveReviewScreen && /* @__PURE__ */ React.createElement(
     DriveReviewScreen,
@@ -1544,7 +1532,26 @@ function App() {
       appliedCount: driveReview.applied || 0,
       alreadyLinkedCount: driveReview.alreadyLinked || 0,
       onClose: () => setShowDriveReviewScreen(false),
-      onOpenFolderSettings: () => setShowDriveFolderSettings(true)
+      onOpenFolderSettings: () => setShowDriveFolderSettings(true),
+      onScan: async () => {
+        const scanResult = await scanDriveLinksRemote();
+        if (scanResult && scanResult.error) {
+          alert("Drive scan problem:\n\n" + scanResult.error);
+          return;
+        }
+        if (scanResult && scanResult.configured) {
+          setDriveReview({
+            duplicates: scanResult.duplicates || [],
+            ambiguous: scanResult.ambiguous || [],
+            unmatched: scanResult.unmatched || [],
+            applied: scanResult.applied || 0,
+            alreadyLinked: scanResult.alreadyLinked || 0
+          });
+          refreshAllData(false);
+        } else {
+          alert("No Drive folder is saved yet \u2014 open Drive folder settings and save the folder link again.");
+        }
+      }
     }
   ), showDriveFolderSettings && /* @__PURE__ */ React.createElement(
     DriveFolderSettingsScreen,
@@ -1584,7 +1591,7 @@ function App() {
       onSwitch: () => setShowSetlistSwitch(true),
       onEdit: () => setShowSetlistEdit("edit")
     }
-  ), /* @__PURE__ */ React.createElement("div", { style: styles.searchRow }, /* @__PURE__ */ React.createElement(Icon, { name: "search", size: 17, color: "var(--dim)", style: { flexShrink: 0 } }), /* @__PURE__ */ React.createElement("input", { value: query, onChange: (e) => setQuery(e.target.value), placeholder: "Search", style: styles.searchInput }), query && /* @__PURE__ */ React.createElement("button", { onClick: () => setQuery(""), style: styles.clearBtn, "aria-label": "Clear search" }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 15, color: "var(--dim)" }))), query.trim() ? /* @__PURE__ */ React.createElement(SearchResultsList, { songs: searchResults, onOpen: setOpenId }) : activeTab === "Setlist" ? /* @__PURE__ */ React.createElement(
+  ), searchOpen && /* @__PURE__ */ React.createElement("div", { style: styles.searchRow }, /* @__PURE__ */ React.createElement(Icon, { name: "search", size: 17, color: "var(--dim)", style: { flexShrink: 0 } }), /* @__PURE__ */ React.createElement("input", { ref: searchInputRef, value: query, onChange: (e) => setQuery(e.target.value), placeholder: "Search", style: styles.searchInput }), query && /* @__PURE__ */ React.createElement("button", { onClick: () => setQuery(""), style: styles.clearBtn, "aria-label": "Clear search" }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 15, color: "var(--dim)" }))), query.trim() ? /* @__PURE__ */ React.createElement(SearchResultsList, { songs: searchResults, onOpen: setOpenId }) : activeTab === "Setlist" ? /* @__PURE__ */ React.createElement(
     SetlistView,
     {
       songs,
@@ -1731,11 +1738,11 @@ function ViewPickerModal({ views, currentViewId, onPick }) {
     );
   }))));
 }
-function Header({ isBeta, saveState, syncStatus, onRefresh, refreshing, manualRefreshing, onBeforeReload, openTodoCount, onOpenTodoScreen, lastSaveError, driveNeedsAttentionCount, onOpenDriveReview, views, activeViewId, onSelectView }) {
+function Header({ isBeta, saveState, syncStatus, onRefresh, refreshing, manualRefreshing, onBeforeReload, openTodoCount, onOpenTodoScreen, lastSaveError, driveNeedsAttentionCount, onOpenDriveReview, views, activeViewId, onSelectView, searchOpen, onToggleSearch }) {
   const [showMenu, setShowMenu] = useState(false);
   const [showZoomControl, setShowZoomControl] = useState(false);
   useCloseMenuOnOutsideClick(showMenu, () => setShowMenu(false));
-  return /* @__PURE__ */ React.createElement("div", { style: styles.header }, /* @__PURE__ */ React.createElement("div", { style: styles.marqueeWrap }, /* @__PURE__ */ React.createElement("img", { src: LOGO_DATA_URI, alt: "Bellafaire Brothers", style: styles.logoImg }), isBeta && /* @__PURE__ */ React.createElement("span", { style: styles.betaTag }, "BETA"), /* @__PURE__ */ React.createElement("span", { style: styles.headerVersion }, "v", APP_VERSION), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 1, marginLeft: 6 } }, /* @__PURE__ */ React.createElement(SaveIndicator, { state: saveState, compact: true, lastError: lastSaveError }), /* @__PURE__ */ React.createElement(SyncIndicator, { status: syncStatus, compact: true }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, onOpenTodoScreen && /* @__PURE__ */ React.createElement("button", { onClick: onOpenTodoScreen, style: styles.todoHeaderBtn, "aria-label": "To-do list" }, /* @__PURE__ */ React.createElement(Icon, { name: "listCheck", size: 17, color: "var(--dim)" }), openTodoCount > 0 && /* @__PURE__ */ React.createElement("span", { style: styles.todoHeaderBadge }, openTodoCount)), /* @__PURE__ */ React.createElement("button", { onClick: onRefresh, style: styles.refreshBtn, "aria-label": "Refresh", title: "Refresh from spreadsheet", disabled: refreshing }, /* @__PURE__ */ React.createElement(Icon, { name: "refresh", size: 15, color: "var(--dim)", className: manualRefreshing ? "spin" : "" })), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowMenu((v) => !v), style: styles.metaEllipsisBtn, "aria-label": "View and set options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 16, color: "var(--dim)" })), showMenu && /* @__PURE__ */ React.createElement("div", { style: styles.metaMenu }, views && activeViewId && onSelectView && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: styles.metaMenuLabel }, "Viewing as"), /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { style: styles.header }, /* @__PURE__ */ React.createElement("div", { style: styles.marqueeWrap }, isBeta ? /* @__PURE__ */ React.createElement("span", { style: styles.betaLogo }, "BETA") : /* @__PURE__ */ React.createElement("img", { src: LOGO_DATA_URI, alt: "Bellafaire Brothers", style: styles.logoImg }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 1, marginLeft: 6 } }, /* @__PURE__ */ React.createElement(SaveIndicator, { state: saveState, compact: true, lastError: lastSaveError }), /* @__PURE__ */ React.createElement(SyncIndicator, { status: syncStatus, compact: true }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { onClick: onToggleSearch, style: { ...styles.refreshBtn, ...searchOpen ? { borderColor: "var(--gold)" } : {} }, "aria-label": "Search" }, /* @__PURE__ */ React.createElement(Icon, { name: "search", size: 15, color: searchOpen ? "var(--gold)" : "var(--dim)" })), onOpenTodoScreen && /* @__PURE__ */ React.createElement("button", { onClick: onOpenTodoScreen, style: styles.todoHeaderBtn, "aria-label": "To-do list" }, /* @__PURE__ */ React.createElement(Icon, { name: "listCheck", size: 17, color: "var(--dim)" }), openTodoCount > 0 && /* @__PURE__ */ React.createElement("span", { style: styles.todoHeaderBadge }, openTodoCount)), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowMenu((v) => !v), style: styles.metaEllipsisBtn, "aria-label": "View and set options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 16, color: "var(--dim)" })), showMenu && /* @__PURE__ */ React.createElement("div", { style: styles.metaMenu }, views && activeViewId && onSelectView && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: styles.metaMenuLabel }, "Viewing as"), /* @__PURE__ */ React.createElement(
     "select",
     {
       value: activeViewId,
@@ -1747,6 +1754,18 @@ function Header({ isBeta, saveState, syncStatus, onRefresh, refreshing, manualRe
     },
     VIEW_IDS.map((vid) => views[vid] ? /* @__PURE__ */ React.createElement("option", { key: vid, value: vid }, views[vid].name) : null)
   ), /* @__PURE__ */ React.createElement("div", { style: styles.metaMenuDivider })), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => {
+        onRefresh();
+        setShowMenu(false);
+      },
+      style: { ...styles.sectionMenuItem, display: "flex", alignItems: "center", gap: 8 },
+      disabled: refreshing
+    },
+    /* @__PURE__ */ React.createElement(Icon, { name: "refresh", size: 14, color: "var(--dim)", className: manualRefreshing ? "spin" : "" }),
+    "Refresh"
+  ), /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => {
@@ -1767,7 +1786,7 @@ function Header({ isBeta, saveState, syncStatus, onRefresh, refreshing, manualRe
       style: styles.sectionMenuItem
     },
     "Zoom"
-  )))), showZoomControl && /* @__PURE__ */ React.createElement(ZoomControl, { onBeforeReload, onClose: () => setShowZoomControl(false) }));
+  ), /* @__PURE__ */ React.createElement("div", { style: styles.metaMenuVersion }, "v", APP_VERSION)))), showZoomControl && /* @__PURE__ */ React.createElement(ZoomControl, { onBeforeReload, onClose: () => setShowZoomControl(false) }));
 }
 function SyncIndicator({ status, compact }) {
   const base = compact ? styles.saveTagCompact : styles.saveTag;
@@ -3244,12 +3263,13 @@ function ManualLinkModal({ file, songs, onLink, onClose }) {
     "Link"
   )))));
 }
-function DriveReviewScreen({ songs, onUpdateSong, duplicates, ambiguous, unmatched, appliedCount, alreadyLinkedCount, onClose, onOpenFolderSettings }) {
+function DriveReviewScreen({ songs, onUpdateSong, duplicates, ambiguous, unmatched, appliedCount, alreadyLinkedCount, onClose, onOpenFolderSettings, onScan }) {
   const [resolved, setResolved] = useState(() => /* @__PURE__ */ new Set());
   const [renamingFile, setRenamingFile] = useState(null);
   const [renameValue, setRenameValue] = useState("");
   const [showUnmatched, setShowUnmatched] = useState(false);
   const [linkingFile, setLinkingFile] = useState(null);
+  const [scanning, setScanning] = useState(false);
   const { swipeX, swiping, handleSwipeStart } = useSwipeToClose(onClose);
   function addLinkToSong(songId, name, url) {
     const song = songs.find((s) => s.id === songId);
@@ -3309,7 +3329,26 @@ function DriveReviewScreen({ songs, onUpdateSong, duplicates, ambiguous, unmatch
       onTouchStart: handleSwipeStart
     },
     /* @__PURE__ */ React.createElement("div", { style: styles.todoScreenHeader }, /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: styles.todoScreenBack, "aria-label": "Close" }, /* @__PURE__ */ React.createElement(Icon, { name: "chevronLeft", size: 18, color: "var(--dim)" })), /* @__PURE__ */ React.createElement("div", { style: styles.todoScreenTitle }, "Review Drive links"), /* @__PURE__ */ React.createElement("button", { onClick: onOpenFolderSettings, style: { ...styles.todoScreenBack, marginLeft: "auto" }, "aria-label": "Drive folder settings" }, /* @__PURE__ */ React.createElement(Icon, { name: "settings", size: 18, color: "var(--dim)" }))),
-    /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewBody }, /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewScroll }, /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewSummary }, appliedCount, " clean match", appliedCount === 1 ? "" : "es", " applied just now.", " ", alreadyLinkedCount > 0 ? `${alreadyLinkedCount} already linked. ` : "", needsAttention, " need your attention."), visibleDuplicates.map((dup) => /* @__PURE__ */ React.createElement("div", { key: dup.filename, style: styles.driveReviewCard }, /* @__PURE__ */ React.createElement(Icon, { name: "alertTriangle", size: 14, color: "var(--needs)" }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewFilename }, dup.filename), /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewMatch }, dup.songTitle, " ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--dim)" } }, "\u2192"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--gold)" } }, dup.tag)), /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewWarning }, "Already has a link named ", dup.tag), renamingFile === dup.filename ? /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewRenameForm }, /* @__PURE__ */ React.createElement(
+    /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewBody }, /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewScroll }, /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: async () => {
+          if (scanning) return;
+          setScanning(true);
+          try {
+            await onScan();
+          } catch (err) {
+            console.error("Drive scan failed", err);
+            alert("Drive scan failed:\n\n" + (err && err.message || String(err)));
+          }
+          setScanning(false);
+        },
+        disabled: scanning,
+        style: styles.driveScanBtn
+      },
+      /* @__PURE__ */ React.createElement(Icon, { name: "refresh", size: 16, color: "var(--bg)", className: scanning ? "spin" : "" }),
+      scanning ? "Scanning\u2026" : "Scan Drive Folder"
+    ), appliedCount > 0 || alreadyLinkedCount > 0 || needsAttention > 0 ? /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewSummary }, appliedCount, " clean match", appliedCount === 1 ? "" : "es", " applied.", " ", alreadyLinkedCount > 0 ? `${alreadyLinkedCount} already linked. ` : "", needsAttention > 0 ? `${needsAttention} need your attention.` : "") : /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewSummary }, "Tap the button above to scan your Drive folder for new recordings."), visibleDuplicates.map((dup) => /* @__PURE__ */ React.createElement("div", { key: dup.filename, style: styles.driveReviewCard }, /* @__PURE__ */ React.createElement(Icon, { name: "alertTriangle", size: 14, color: "var(--needs)" }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewFilename }, dup.filename), /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewMatch }, dup.songTitle, " ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--dim)" } }, "\u2192"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--gold)" } }, dup.tag)), /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewWarning }, "Already has a link named ", dup.tag), renamingFile === dup.filename ? /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewRenameForm }, /* @__PURE__ */ React.createElement(
       "input",
       {
         autoFocus: true,
@@ -4031,6 +4070,7 @@ const rawStyles = {
   marqueeWrap: { display: "flex", alignItems: "center", gap: 8 },
   headerVersion: { fontFamily: "var(--mono)", fontSize: 10.5, color: "var(--dim)" },
   betaTag: { background: "#c2410c", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: 0.5, borderRadius: 3, padding: "1px 4px", marginLeft: 4 },
+  betaLogo: { background: "#c2410c", color: "#fff", fontFamily: "var(--display)", fontWeight: 600, fontSize: 14, letterSpacing: "0.06em", padding: "4px 10px", borderRadius: 6, textTransform: "uppercase", lineHeight: 1 },
   todoHeaderBtn: { position: "relative", background: "none", border: "none", display: "flex", padding: 4 },
   todoHeaderBadge: { position: "absolute", top: -2, right: -4, background: "var(--gold)", color: "var(--bg)", fontSize: 9, fontWeight: 600, borderRadius: 8, padding: "1px 4px", minWidth: 13, textAlign: "center" },
   driveMenuBadge: { background: "var(--gold)", color: "var(--bg)", fontSize: 10, fontWeight: 600, borderRadius: 8, padding: "1px 6px", minWidth: 15, textAlign: "center" },
@@ -4119,6 +4159,7 @@ const rawStyles = {
   metaMenu: { position: "absolute", top: "100%", right: 0, marginTop: 6, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, padding: 12, minWidth: 190, zIndex: 30, boxShadow: "0 8px 20px rgba(0,0,0,0.4)" },
   metaMenuLabel: { fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--dim)", marginBottom: 5, fontFamily: "var(--display)", fontWeight: 600 },
   metaMenuDivider: { height: 1, background: "var(--line)", margin: "10px 0 6px" },
+  metaMenuVersion: { fontFamily: "var(--mono)", fontSize: 10, color: "var(--dim)", textAlign: "center", paddingTop: 8, marginTop: 4, borderTop: "1px solid var(--line)" },
   metaSelect: { flex: 1, background: "var(--surface-raised)", border: "1px solid var(--line)", borderRadius: 8, padding: "7px 6px", color: "var(--text)", fontSize: 16, fontFamily: "var(--display)", minWidth: 0 },
   metaIconBtn: { background: "var(--surface-raised)", border: "1px solid var(--line)", borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 },
   detailScroll: { flex: 1, overflowY: "auto", padding: "4px 16px 24px", touchAction: "pan-y" },
@@ -4236,6 +4277,7 @@ const rawStyles = {
   driveReviewBody: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" },
   driveReviewScroll: { flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "4px 14px 16px" },
   driveReviewFooter: { flexShrink: 0, padding: "10px 14px", borderTop: "1px solid var(--line)", background: "var(--bg)" },
+  driveScanBtn: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 12, padding: "10px 16px", background: "var(--gold)", color: "var(--bg)", borderRadius: 10, border: "none", fontFamily: "var(--display)", fontWeight: 600, fontSize: 13.5, letterSpacing: "0.04em", textTransform: "uppercase", cursor: "pointer", width: "100%" },
   driveReviewSummary: { fontSize: 12, color: "var(--dim)", marginBottom: 14 },
   driveReviewCard: { display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 6px", background: "rgba(226,83,74,0.08)", borderRadius: 6, marginBottom: 8 },
   driveReviewFilename: { fontSize: 12.5, color: "var(--dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
