@@ -481,7 +481,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.7.3-beta5";
+const APP_VERSION = "1.7.3-beta6";
 function versionBase(v) {
   return String(v || "").split("-")[0].split(".").slice(0, 3).join(".");
 }
@@ -3842,7 +3842,7 @@ function SongDetail({
         const bpmVal = song.tempo == null ? "" : String(song.tempo);
         const sigVal = song.timeSig == null ? "" : String(song.timeSig);
         const featVal = song.features || "";
-        return /* @__PURE__ */ React.createElement("div", { key: id, ref: setRowRef(id), style: { ...styles.quickStatsRow, ...isEmpty ? styles.emptySectionFade : {}, ...openMenuFor === id ? { position: "relative", zIndex: 25 } : {}, ...activeDragId === id ? styles.dragging : {} } }, sectionEditMode && /* @__PURE__ */ React.createElement("span", { onPointerDown: startDrag(id), style: styles.atomicDragHandle, "data-swipe-ignore": "true" }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 15, color: "var(--dim)" })), /* @__PURE__ */ React.createElement("div", { style: styles.quickStatsGrid }, /* @__PURE__ */ React.createElement("div", { style: styles.quickStatCell }, /* @__PURE__ */ React.createElement("span", { style: styles.quickStatLabel }, "Key"), /* @__PURE__ */ React.createElement("input", { value: keyVal, onChange: (e) => onChange({ key: e.target.value }), onBlur: onFieldBlur, style: { ...styles.quickStatInput, fontFamily: "var(--mono)" } })), /* @__PURE__ */ React.createElement("div", { style: styles.quickStatCell }, /* @__PURE__ */ React.createElement("span", { style: styles.quickStatLabel }, "BPM"), /* @__PURE__ */ React.createElement(
+        return /* @__PURE__ */ React.createElement("div", { key: id, ref: setRowRef(id), style: { ...styles.quickStatsRow, ...isEmpty ? styles.emptySectionFade : {}, ...openMenuFor === id ? { position: "relative", zIndex: 25 } : {}, ...activeDragId === id ? styles.dragging : {} } }, sectionEditMode && /* @__PURE__ */ React.createElement("span", { onPointerDown: startDrag(id), style: styles.atomicDragHandle, "data-swipe-ignore": "true" }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 15, color: "var(--dim)" })), /* @__PURE__ */ React.createElement("div", { style: styles.quickStatsGrid }, /* @__PURE__ */ React.createElement("div", { style: styles.quickStatCell }, /* @__PURE__ */ React.createElement("input", { value: keyVal, onChange: (e) => onChange({ key: e.target.value }), onBlur: onFieldBlur, style: { ...styles.quickStatInput, color: "var(--gold)" } }), /* @__PURE__ */ React.createElement("span", { style: styles.quickStatLabel }, "KEY")), /* @__PURE__ */ React.createElement("div", { style: styles.quickStatDivider }), /* @__PURE__ */ React.createElement("div", { style: styles.quickStatCell }, /* @__PURE__ */ React.createElement(
           "input",
           {
             value: bpmVal,
@@ -3857,7 +3857,7 @@ function SongDetail({
             },
             style: styles.quickStatInput
           }
-        )), /* @__PURE__ */ React.createElement("div", { style: styles.quickStatCell }, /* @__PURE__ */ React.createElement("span", { style: styles.quickStatLabel }, "Time"), /* @__PURE__ */ React.createElement("input", { value: sigVal, type: "text", onChange: (e) => onChange({ timeSig: e.target.value }), onBlur: onFieldBlur, style: styles.quickStatInput })), /* @__PURE__ */ React.createElement("div", { style: { ...styles.quickStatCell, flex: 1.5 } }, /* @__PURE__ */ React.createElement("span", { style: styles.quickStatLabel }, "Feat."), /* @__PURE__ */ React.createElement("input", { value: featVal, onChange: (e) => onChange({ features: e.target.value }), onBlur: onFieldBlur, style: styles.quickStatInput }))));
+        ), /* @__PURE__ */ React.createElement("span", { style: styles.quickStatLabel }, "BPM")), /* @__PURE__ */ React.createElement("div", { style: styles.quickStatDivider }), /* @__PURE__ */ React.createElement("div", { style: styles.quickStatCell }, /* @__PURE__ */ React.createElement("input", { value: sigVal, type: "text", onChange: (e) => onChange({ timeSig: e.target.value }), onBlur: onFieldBlur, style: styles.quickStatInput }), /* @__PURE__ */ React.createElement("span", { style: styles.quickStatLabel }, "TIME")), featVal ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: styles.quickStatDivider }), /* @__PURE__ */ React.createElement("div", { style: { ...styles.quickStatCell, flex: 1.3 } }, /* @__PURE__ */ React.createElement("input", { value: featVal, onChange: (e) => onChange({ features: e.target.value }), onBlur: onFieldBlur, style: { ...styles.quickStatInput, fontFamily: "var(--display)", fontSize: 14, fontWeight: 600 } }), /* @__PURE__ */ React.createElement("span", { style: styles.quickStatLabel }, "FEAT."))) : null));
       }
       const emptyDividerEl = showEmptyDivider ? /* @__PURE__ */ React.createElement("div", { key: "__empty_divider", style: styles.emptyDivider }, /* @__PURE__ */ React.createElement("span", { style: styles.emptyDividerText }, "Empty")) : null;
       if (isTodoList && todoArrForInline.length === 0) {
@@ -4133,11 +4133,12 @@ const rawStyles = {
   atomicContent: { padding: "0 2px 8px 4px" },
   atomicInlineRow: { display: "flex", alignItems: "center", gap: 3, padding: "7px 0", borderBottom: "1px solid var(--line)" },
   // Quick Stats bar — Key | BPM | Time Sig | Featured Artist
-  quickStatsRow: { display: "flex", alignItems: "center", gap: 3, padding: "6px 0 8px", borderBottom: "1px solid var(--line)" },
-  quickStatsGrid: { flex: 1, display: "flex", gap: 12, minWidth: 0 },
-  quickStatCell: { flex: 1, display: "flex", flexDirection: "column", gap: 2, minWidth: 0 },
-  quickStatLabel: { fontFamily: "var(--display)", fontWeight: 600, fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--dim)" },
-  quickStatInput: { background: "transparent", border: "none", borderBottom: "1px solid var(--line)", color: "var(--gold)", fontFamily: "var(--body)", fontSize: 16, padding: "2px 0 3px", width: "100%", minWidth: 0 },
+  quickStatsRow: { display: "flex", alignItems: "center", gap: 3, background: "var(--surface)", borderBottom: "1px solid var(--line)" },
+  quickStatsGrid: { flex: 1, display: "flex", gap: 0, minWidth: 0 },
+  quickStatDivider: { width: 1, alignSelf: "stretch", background: "var(--line)" },
+  quickStatCell: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 0, minWidth: 0, padding: "7px 4px 5px" },
+  quickStatLabel: { fontFamily: "var(--display)", fontWeight: 600, fontSize: 7.5, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--dim)", marginTop: 2 },
+  quickStatInput: { background: "transparent", border: "none", borderBottom: "2px solid transparent", color: "var(--text)", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: 17, padding: "0 0 2px", width: "auto", minWidth: 24, textAlign: "center", maxWidth: "100%" },
   // Section content preview (collapsed)
   sectionPreview: { fontFamily: "var(--body)", fontWeight: 400, fontSize: 13, color: "var(--dim)", opacity: 0.55, marginLeft: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 },
   // Empty section auto-sort
