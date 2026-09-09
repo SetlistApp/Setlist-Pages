@@ -481,7 +481,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.7.3-beta2";
+const APP_VERSION = "1.7.3-beta3";
 function versionBase(v) {
   return String(v || "").split("-")[0].split(".").slice(0, 3).join(".");
 }
@@ -3884,7 +3884,7 @@ function SongDetail({
           },
           /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 13, color: "var(--dim)" }),
           " Add to-do"
-        ), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setOpenMenuFor((cur) => cur === id ? null : id), style: styles.atomicMenuBtn, "aria-label": "Section options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 15, color: "var(--dim)" })), renderMenu(id, def))));
+        ), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setOpenMenuFor((cur) => cur === id ? null : id), style: { ...styles.atomicMenuBtn, ...isEmpty ? { opacity: 1 } : {} }, "aria-label": "Section options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 15, color: "var(--dim)" })), renderMenu(id, def))));
       }
       if (isLinksList) {
         const linksArr = song[def.id] || [];
@@ -3901,7 +3901,17 @@ function SongDetail({
             },
             style: styles.sectionRenameInput
           }
-        ) : /* @__PURE__ */ React.createElement("span", { style: { ...styles.atomicLabelInline, ...!hasData ? styles.atomicLabelEmpty : {}, paddingTop: 4 } }, def.label), editingThisLinks ? /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement(
+        ) : /* @__PURE__ */ React.createElement(
+          "span",
+          {
+            style: { ...styles.atomicLabelInline, ...!hasData ? styles.atomicLabelEmpty : {}, paddingTop: 4, ...!hasData && !editingThisLinks ? { cursor: "pointer" } : {} },
+            onClick: !hasData && !editingThisLinks ? () => {
+              setLinksEditModeFor(id);
+              setCollapsed((p) => ({ ...p, [id]: false }));
+            } : void 0
+          },
+          def.label
+        ), editingThisLinks ? /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement(
           LinksListEditor,
           {
             value: linksArr,
@@ -3910,7 +3920,17 @@ function SongDetail({
             songId: def.id === "recording" ? song.id : void 0,
             songTitle: def.id === "recording" ? song.title : void 0
           }
-        )) : /* @__PURE__ */ React.createElement("div", { style: styles.linkChipZone }, linksArr.length > 0 && linksArr.map((l) => /* @__PURE__ */ React.createElement(LinkChip, { key: l.id, link: l }))), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", marginTop: 2 }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setOpenMenuFor((cur) => cur === id ? null : id), style: styles.atomicMenuBtn, "aria-label": "Section options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 15, color: "var(--dim)" })), renderMenu(id, def))));
+        )) : /* @__PURE__ */ React.createElement(
+          "div",
+          {
+            style: { ...styles.linkChipZone, ...linksArr.length === 0 ? { cursor: "pointer", minHeight: 28 } : {} },
+            onClick: linksArr.length === 0 ? () => {
+              setLinksEditModeFor(id);
+              setCollapsed((p) => ({ ...p, [id]: false }));
+            } : void 0
+          },
+          linksArr.length > 0 && linksArr.map((l) => /* @__PURE__ */ React.createElement(LinkChip, { key: l.id, link: l }))
+        ), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", marginTop: 2 }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setOpenMenuFor((cur) => cur === id ? null : id), style: { ...styles.atomicMenuBtn, ...isEmpty ? { opacity: 1 } : {} }, "aria-label": "Section options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 15, color: "var(--dim)" })), renderMenu(id, def))));
       }
       if (def.type === "metronome") {
         const bpmVal = song.tempo == null ? "" : String(song.tempo);
@@ -3918,7 +3938,7 @@ function SongDetail({
         const isRenaming = renamingSectionId === id;
         return /* @__PURE__ */ React.createElement(React.Fragment, { key: id }, emptyDividerEl, /* @__PURE__ */ React.createElement("div", { ref: setRowRef(id), style: { ...styles.atomicSection, ...isEmpty ? styles.emptySectionFade : {}, ...activeDragId === id ? styles.dragging : {} } }, /* @__PURE__ */ React.createElement("div", { style: styles.atomicHeaderRow }, sectionEditMode && /* @__PURE__ */ React.createElement("span", { onPointerDown: startDrag(id), style: styles.atomicDragHandle, "data-swipe-ignore": "true" }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 17, color: "var(--dim)" })), isRenaming ? /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "flex", alignItems: "center", gap: 7 } }, isCollapsed2 ? /* @__PURE__ */ React.createElement(Icon, { name: "chevronRight", size: 16, color: "var(--dim)" }) : /* @__PURE__ */ React.createElement(Icon, { name: "chevronDown", size: 16, color: "var(--dim)" }), /* @__PURE__ */ React.createElement("input", { autoFocus: true, value: def.label, onChange: (e) => onRenameSection(id, e.target.value), onBlur: () => setRenamingSectionId(null), onKeyDown: (e) => {
           if (e.key === "Enter") setRenamingSectionId(null);
-        }, style: styles.sectionRenameInput })) : /* @__PURE__ */ React.createElement("button", { onClick: () => setCollapsed((p) => ({ ...p, [id]: p[id] === false })), style: styles.atomicToggle }, isCollapsed2 ? /* @__PURE__ */ React.createElement(Icon, { name: "chevronRight", size: 16, color: "var(--dim)" }) : /* @__PURE__ */ React.createElement(Icon, { name: "chevronDown", size: 16, color: "var(--dim)" }), /* @__PURE__ */ React.createElement("span", { style: { ...styles.atomicLabel, ...!hasData ? styles.atomicLabelEmpty : {} } }, def.label), isCollapsed2 && hasData && /* @__PURE__ */ React.createElement("span", { style: styles.sectionPreview }, bpmVal, " BPM")), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setOpenMenuFor((cur) => cur === id ? null : id), style: styles.atomicMenuBtn, "aria-label": "Section options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 15, color: "var(--dim)" })), renderMenu(id, def))), !isCollapsed2 && /* @__PURE__ */ React.createElement("div", { style: { ...styles.atomicContent, paddingLeft: sectionEditMode ? 25 : 4 } }, /* @__PURE__ */ React.createElement(Metronome, { bpm: bpmVal, onSetBpm: (n) => onChange({ tempo: String(n) }) }))));
+        }, style: styles.sectionRenameInput })) : /* @__PURE__ */ React.createElement("button", { onClick: () => setCollapsed((p) => ({ ...p, [id]: p[id] === false })), style: styles.atomicToggle }, isCollapsed2 ? /* @__PURE__ */ React.createElement(Icon, { name: "chevronRight", size: 16, color: "var(--dim)" }) : /* @__PURE__ */ React.createElement(Icon, { name: "chevronDown", size: 16, color: "var(--dim)" }), /* @__PURE__ */ React.createElement("span", { style: { ...styles.atomicLabel, ...!hasData ? styles.atomicLabelEmpty : {} } }, def.label), isCollapsed2 && hasData && /* @__PURE__ */ React.createElement("span", { style: styles.sectionPreview }, bpmVal, " BPM")), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setOpenMenuFor((cur) => cur === id ? null : id), style: { ...styles.atomicMenuBtn, ...isEmpty ? { opacity: 1 } : {} }, "aria-label": "Section options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 15, color: "var(--dim)" })), renderMenu(id, def))), !isCollapsed2 && /* @__PURE__ */ React.createElement("div", { style: { ...styles.atomicContent, paddingLeft: sectionEditMode ? 25 : 4 } }, /* @__PURE__ */ React.createElement(Metronome, { bpm: bpmVal, onSetBpm: (n) => onChange({ tempo: String(n) }) }))));
       }
       if (def.layout === "inline") {
         const value = song[def.id] || "";
@@ -3943,7 +3963,7 @@ function SongDetail({
             onBlur: onFieldBlur,
             style: { ...styles.inlineInput, textAlign: align, ...def.mono ? styles.mono : {} }
           }
-        ), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setOpenMenuFor((cur) => cur === id ? null : id), style: styles.atomicMenuBtn, "aria-label": "Section options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 15, color: "var(--dim)" })), renderMenu(id, def))));
+        ), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setOpenMenuFor((cur) => cur === id ? null : id), style: { ...styles.atomicMenuBtn, ...isEmpty ? { opacity: 1 } : {} }, "aria-label": "Section options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 15, color: "var(--dim)" })), renderMenu(id, def))));
       }
       const isCollapsed = collapsed[id];
       const previewText = isCollapsed && hasData ? getContentPreview(def, song) : "";
@@ -3959,7 +3979,7 @@ function SongDetail({
           },
           style: styles.sectionRenameInput
         }
-      )) : /* @__PURE__ */ React.createElement("button", { onClick: () => setCollapsed((p) => ({ ...p, [id]: !p[id] })), style: styles.atomicToggle }, isCollapsed ? /* @__PURE__ */ React.createElement(Icon, { name: "chevronRight", size: 16, color: "var(--dim)" }) : /* @__PURE__ */ React.createElement(Icon, { name: "chevronDown", size: 16, color: "var(--dim)" }), /* @__PURE__ */ React.createElement("span", { style: { ...styles.atomicLabel, ...!hasData ? styles.atomicLabelEmpty : {} } }, def.label), previewText && /* @__PURE__ */ React.createElement("span", { style: styles.sectionPreview }, previewText)), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setOpenMenuFor((cur) => cur === id ? null : id), style: styles.atomicMenuBtn, "aria-label": "Section options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 15, color: "var(--dim)" })), renderMenu(id, def))), !isCollapsed && /* @__PURE__ */ React.createElement("div", { style: { ...styles.atomicContent, paddingLeft: sectionEditMode ? 25 : 4 } }, renderSectionContent(def, song, onChange, arrColPct, onArrColPctChange, arrEditMode, onFieldBlur))));
+      )) : /* @__PURE__ */ React.createElement("button", { onClick: () => setCollapsed((p) => ({ ...p, [id]: !p[id] })), style: styles.atomicToggle }, isCollapsed ? /* @__PURE__ */ React.createElement(Icon, { name: "chevronRight", size: 16, color: "var(--dim)" }) : /* @__PURE__ */ React.createElement(Icon, { name: "chevronDown", size: 16, color: "var(--dim)" }), /* @__PURE__ */ React.createElement("span", { style: { ...styles.atomicLabel, ...!hasData ? styles.atomicLabelEmpty : {} } }, def.label), previewText && /* @__PURE__ */ React.createElement("span", { style: styles.sectionPreview }, previewText)), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setOpenMenuFor((cur) => cur === id ? null : id), style: { ...styles.atomicMenuBtn, ...isEmpty ? { opacity: 1 } : {} }, "aria-label": "Section options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 15, color: "var(--dim)" })), renderMenu(id, def))), !isCollapsed && /* @__PURE__ */ React.createElement("div", { style: { ...styles.atomicContent, paddingLeft: sectionEditMode ? 25 : 4 } }, renderSectionContent(def, song, onChange, arrColPct, onArrColPctChange, arrEditMode, onFieldBlur))));
     })), hiddenSections.length > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.addSectionWrap }, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowHidden((v) => !v), style: styles.addSectionBtn }, showHidden ? "Hide list" : `Show hidden sections (${hiddenSections.length})`), showHidden && /* @__PURE__ */ React.createElement("div", { style: styles.hiddenChipRow }, hiddenSections.map((id) => /* @__PURE__ */ React.createElement("button", { key: id, onClick: () => onShowSection(id), style: styles.hiddenChip }, "+ ", sectionDefsById[id]?.label))))),
     showAddSection && /* @__PURE__ */ React.createElement(
       AddSectionModal,
@@ -4109,7 +4129,7 @@ const rawStyles = {
   atomicToggle: { flex: 1, display: "flex", alignItems: "center", gap: 7, background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: "2px 0", minWidth: 0 },
   atomicLabel: { fontFamily: "var(--display)", fontWeight: 600, fontSize: 16.5, color: "var(--text)" },
   atomicLabelEmpty: { color: "var(--dim)", fontWeight: 500 },
-  atomicMenuBtn: { background: "none", border: "none", cursor: "pointer", padding: 4, flexShrink: 0, opacity: 0.65 },
+  atomicMenuBtn: { background: "none", border: "none", cursor: "pointer", padding: 10, margin: -6, flexShrink: 0, opacity: 0.65 },
   atomicContent: { padding: "0 2px 8px 4px" },
   atomicInlineRow: { display: "flex", alignItems: "center", gap: 3, padding: "7px 0", borderBottom: "1px solid var(--line)" },
   // Quick Stats bar — Key | BPM | Time Sig | Featured Artist
