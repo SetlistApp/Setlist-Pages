@@ -9,7 +9,7 @@
  * Code_v*.gs — bump all of them together on every ship.
  */
 
-var SW_VERSION = "2.0.2-beta1";
+var SW_VERSION = "2.0.2-beta2";
 var CACHE = "setlist-shell-" + SW_VERSION;
 
 /* The app shell: the page itself plus the two CDN scripts it pulls today.
@@ -78,24 +78,22 @@ self.addEventListener("fetch", function (event) {
   }
 
   if (req.mode === "navigate") {
-    // App-shell: serve the cached page immediately (works with zero
-    // connection), and refresh the cached copy from the network in the
-    // background for the next load. The app already shows a "please refresh"
-    // banner on an APP_VERSION mismatch, so a one-load-stale shell is safe.
-    // ignoreVary: static hosts send "Vary: Accept-Encoding", which would
-    // otherwise stop the cached shell from matching the navigation request.
+    // Network-first: always fetch the latest HTML from the server so a
+    // reload (or closing and reopening the PWA) immediately picks up a new
+    // version. Falls back to the cached shell only when genuinely offline.
+    // The old stale-while-revalidate strategy served cached HTML instantly
+    // but forced multiple close/reopen cycles before an update landed.
     var opts = { ignoreVary: true, ignoreSearch: true };
     event.respondWith(
-      caches.match("./index.html", opts).then(function (cached) {
-        var fresh = fetch(req).then(function (res) {
-          if (res && res.ok && res.type === "basic") {
-            var copy = res.clone();
-            caches.open(CACHE).then(function (c) { c.put("./index.html", copy); });
-          }
-          return res;
-        }).catch(function () { return null; });
-        return cached || fresh.then(function (r) {
-          return r || caches.match("./", opts);
+      fetch(req).then(function (res) {
+        if (res && res.ok && res.type === "basic") {
+          var copy = res.clone();
+          caches.open(CACHE).then(function (c) { c.put("./index.html", copy); });
+        }
+        return res;
+      }).catch(function () {
+        return caches.match("./index.html", opts).then(function (cached) {
+          return cached || caches.match("./", opts);
         });
       })
     );
