@@ -2031,12 +2031,35 @@ function App() {
             applied: scanResult.applied || 0,
             alreadyLinked: scanResult.alreadyLinked || 0
           });
-          if (_useSupabaseData && scanResult.appliedPatches && scanResult.appliedPatches.length > 0) {
-            for (const patch of scanResult.appliedPatches) {
+          if (_useSupabaseData && scanResult.allSongRecordings && scanResult.allSongRecordings.length > 0) {
+            const client = getSupabaseClient();
+            for (const entry of scanResult.allSongRecordings) {
               try {
-                await supabaseCall("driveScanPatch", () => saveSongPatchToSupabase(patch));
+                const cur = await client.from("songs").select("recording").eq("id", entry.id).single();
+                const supaRecs = cur.data && cur.data.recording || [];
+                const sheetRecs = entry.recording || [];
+                const existingIds = /* @__PURE__ */ new Set();
+                for (const r of supaRecs) {
+                  const fid = driveFileIdFromUrl(r.url);
+                  if (fid) existingIds.add(fid);
+                }
+                let merged = [...supaRecs];
+                let added = 0;
+                for (const r of sheetRecs) {
+                  const fid = driveFileIdFromUrl(r.url);
+                  if (fid && existingIds.has(fid)) continue;
+                  if (!fid && supaRecs.some((s) => s.url === r.url)) continue;
+                  merged.push(r);
+                  added++;
+                }
+                if (added > 0) {
+                  await supabaseCall(
+                    "driveScanSync",
+                    () => saveSongPatchToSupabase({ id: entry.id, recording: merged })
+                  );
+                }
               } catch (e) {
-                console.warn("Failed to mirror Drive scan patch to Supabase:", patch.id, e);
+                console.warn("Failed to sync recordings to Supabase:", entry.id, e);
               }
             }
           }
