@@ -487,7 +487,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.8-beta1";
+const APP_VERSION = "1.8-beta2";
 var _realtimeStatus = "not configured";
 function versionBase(v) {
   return String(v || "").split("-")[0].split(".").slice(0, 3).join(".");
