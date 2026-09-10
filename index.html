@@ -2031,6 +2031,15 @@ function App() {
             applied: scanResult.applied || 0,
             alreadyLinked: scanResult.alreadyLinked || 0
           });
+          if (_useSupabaseData && scanResult.appliedPatches && scanResult.appliedPatches.length > 0) {
+            for (const patch of scanResult.appliedPatches) {
+              try {
+                await supabaseCall("driveScanPatch", () => saveSongPatchToSupabase(patch));
+              } catch (e) {
+                console.warn("Failed to mirror Drive scan patch to Supabase:", patch.id, e);
+              }
+            }
+          }
           refreshAllData(false);
         } else {
           alert("No Drive folder is saved yet \u2014 open Drive folder settings and save the folder link again.");
@@ -4469,7 +4478,7 @@ function SongDetail({
       const isEmpty = emptyIds.has(id);
       const tabFirstEmptyIdx = filteredArr.findIndex((fid) => emptyIds.has(fid));
       const tabHasFilled = filteredArr.some((fid) => !emptyIds.has(fid));
-      const showEmptyDivider = _idx === tabFirstEmptyIdx && tabHasFilled && tabFirstEmptyIdx > 0;
+      const showEmptyDivider = activeTab === "overview" && _idx === tabFirstEmptyIdx && tabHasFilled && tabFirstEmptyIdx > 0;
       const isLinksList = def.type === "linksList";
       const isTodoList = def.type === "todoList";
       const todoArrForInline = isTodoList ? song[def.id] || [] : null;
@@ -4639,7 +4648,7 @@ function SongDetail({
           style: styles.sectionRenameInput
         }
       )) : /* @__PURE__ */ React.createElement("button", { onClick: () => setCollapsed((p) => ({ ...p, [id]: !p[id] })), style: styles.atomicToggle }, isCollapsed ? /* @__PURE__ */ React.createElement(Icon, { name: "chevronRight", size: 16, color: "var(--dim)" }) : /* @__PURE__ */ React.createElement(Icon, { name: "chevronDown", size: 16, color: "var(--dim)" }), /* @__PURE__ */ React.createElement("span", { style: { ...styles.atomicLabel, ...!hasData ? styles.atomicLabelEmpty : {} } }, def.label), previewText && /* @__PURE__ */ React.createElement("span", { style: styles.sectionPreview }, previewText)), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setOpenMenuFor((cur) => cur === id ? null : id), style: styles.atomicMenuBtn, "aria-label": "Section options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 15, color: "var(--dim)" })), renderMenu(id, def))), !isCollapsed && /* @__PURE__ */ React.createElement("div", { style: { ...styles.atomicContent, paddingLeft: sectionEditMode ? 25 : 4 } }, renderSectionContent(def, song, onChange, arrColPct, onArrColPctChange, arrEditMode, onFieldBlur))));
-    })), hiddenSections.length > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.addSectionWrap }, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowHidden((v) => !v), style: styles.addSectionBtn }, showHidden ? "Hide list" : `Show hidden sections (${hiddenSections.length})`), showHidden && /* @__PURE__ */ React.createElement("div", { style: styles.hiddenChipRow }, hiddenSections.map((id) => /* @__PURE__ */ React.createElement("button", { key: id, onClick: () => onShowSection(id), style: styles.hiddenChip }, "+ ", sectionDefsById[id]?.label))))),
+    })), hiddenSections.length > 0 && activeTab === "overview" && /* @__PURE__ */ React.createElement("div", { style: styles.addSectionWrap }, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowHidden((v) => !v), style: styles.addSectionBtn }, showHidden ? "Hide list" : `Show hidden sections (${hiddenSections.length})`), showHidden && /* @__PURE__ */ React.createElement("div", { style: styles.hiddenChipRow }, hiddenSections.map((id) => /* @__PURE__ */ React.createElement("button", { key: id, onClick: () => onShowSection(id), style: styles.hiddenChip }, "+ ", sectionDefsById[id]?.label))))),
     showAddSection && /* @__PURE__ */ React.createElement(
       AddSectionModal,
       {
