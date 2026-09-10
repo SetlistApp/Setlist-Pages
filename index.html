@@ -488,6 +488,7 @@ function nextRetryDelay(attempt) {
   return base + Math.floor(Math.random() * 3e3);
 }
 const APP_VERSION = "1.8-beta1";
+var _realtimeStatus = "not configured";
 function versionBase(v) {
   return String(v || "").split("-")[0].split(".").slice(0, 3).join(".");
 }
@@ -1288,10 +1289,16 @@ function App() {
     var url = window.__SUPABASE_URL__;
     var key = window.__SUPABASE_ANON_KEY__;
     var channelName = window.__SUPABASE_CHANNEL__ || "sync";
-    if (!url || !key || typeof window.supabase === "undefined") {
-      if (url && key) console.warn("[Realtime] Supabase client not loaded \u2014 falling back to polling");
+    if (!url || !key) {
+      _realtimeStatus = "not configured";
       return;
     }
+    if (typeof window.supabase === "undefined") {
+      console.warn("[Realtime] Supabase client not loaded \u2014 falling back to polling");
+      _realtimeStatus = "script not loaded";
+      return;
+    }
+    _realtimeStatus = "connecting\u2026";
     try {
       var client = window.supabase.createClient(url, key);
       var ch = client.channel(channelName);
@@ -1306,6 +1313,15 @@ function App() {
       ch.subscribe(function(status) {
         if (status === "SUBSCRIBED") {
           console.log("[Realtime] Connected to channel:", channelName);
+          _realtimeStatus = "connected (" + channelName + ")";
+        } else if (status === "CHANNEL_ERROR") {
+          console.warn("[Realtime] Channel error");
+          _realtimeStatus = "error";
+        } else if (status === "TIMED_OUT") {
+          console.warn("[Realtime] Connection timed out");
+          _realtimeStatus = "timed out";
+        } else {
+          _realtimeStatus = status || "unknown";
         }
       });
       realtimeChannelRef.current = ch;
@@ -1313,9 +1329,11 @@ function App() {
         if (nudgeTimer) clearTimeout(nudgeTimer);
         ch.unsubscribe();
         realtimeChannelRef.current = null;
+        _realtimeStatus = "disconnected";
       };
     } catch (e) {
       console.warn("[Realtime] Failed to connect:", e);
+      _realtimeStatus = "failed: " + (e.message || e);
     }
   }, [loaded]);
   function retryAllPendingSaves() {
@@ -2052,8 +2070,9 @@ function StatusDot({ saveState, syncStatus, lastError }) {
 }
 function formatDiagLog() {
   const log = getDiagLog();
-  if (!log.length) return "No recent network calls logged.";
-  return "Recent network calls (newest first):\n\n" + log.slice().reverse().map((e, i) => {
+  const header = "Realtime: " + _realtimeStatus + "\n\n";
+  if (!log.length) return header + "No recent network calls logged.";
+  return header + "Recent network calls (newest first):\n\n" + log.slice().reverse().map((e, i) => {
     const time = e.at ? e.at.replace("T", " ").replace(/\.\d+Z$/, "") : "?";
     const status = e.ok ? "\u2713 OK" : "\u2717 FAIL";
     const dur = e.ms != null ? e.ms + "ms" : "?";
