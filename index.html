@@ -483,7 +483,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.7.3.6";
+const APP_VERSION = "1.7.3.7";
 function versionBase(v) {
   return String(v || "").split("-")[0].split(".").slice(0, 3).join(".");
 }
@@ -1970,13 +1970,13 @@ function StatusDot({ saveState, syncStatus, lastError }) {
     color = "var(--yellow)";
     label = "Syncing\u2026";
     pulse = false;
-  } else if (syncStatus === "paused") {
-    color = "var(--yellow)";
-    label = "Paused";
-    pulse = false;
   } else if (saveState === "saved") {
     color = "var(--ready)";
     label = "Saved \u2713";
+    pulse = false;
+  } else if (syncStatus === "paused") {
+    color = "var(--yellow)";
+    label = "Paused";
     pulse = false;
   } else if (syncStatus === "synced") {
     color = "var(--ready)";
