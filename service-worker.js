@@ -20,7 +20,7 @@ var SHELL = [
   "./index.html",
   "https://unpkg.com/react@18/umd/react.production.min.js",
   "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js",
-  "https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js"
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"
 ];
 
 self.addEventListener("install", function (event) {
