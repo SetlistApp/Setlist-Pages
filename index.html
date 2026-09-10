@@ -482,7 +482,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.7.3.3";
+const APP_VERSION = "1.7.3.4";
 function versionBase(v) {
   return String(v || "").split("-")[0].split(".").slice(0, 3).join(".");
 }
@@ -491,39 +491,75 @@ const GS_CALL_TIMEOUT_MS = 14e3;
 const GS_CALL_SYNC_TIMEOUT_MS = 14e3;
 const FETCH_TRANSPORT_EXTRA_MS = 3e4;
 const GAS_DOPOST_URL = "https://script.google.com/macros/s/AKfycbw-JuS02Bqwm1rav03CtJ2TVdx1QVHDUS6MUjPBlUO_mOog8B-tQOHqsLAgXxejHsB8gg/exec";
+const GSCALL_MAX_RETRIES = 2;
+const GSCALL_RETRY_DELAY_MS = 2e3;
+const DIAG_LOG_MAX = 30;
+const _diagLog = [];
+function diagLog(entry) {
+  _diagLog.push(entry);
+  if (_diagLog.length > DIAG_LOG_MAX) _diagLog.shift();
+}
+function getDiagLog() {
+  return _diagLog;
+}
 function gsCall(fnName, arg, timeoutMs) {
-  const effectiveTimeout = (timeoutMs || GS_CALL_TIMEOUT_MS) + FETCH_TRANSPORT_EXTRA_MS;
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      controller.abort();
-      reject(new Error(fnName + " timed out after " + effectiveTimeout + "ms"));
-    }, effectiveTimeout);
-    const dopostUrl = typeof window.__DOPOST_URL__ === "string" && window.__DOPOST_URL__ ? window.__DOPOST_URL__ : GAS_DOPOST_URL;
-    fetch(dopostUrl, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ fn: fnName, arg }),
-      signal: controller.signal
-    }).then((res) => {
-      if (!res.ok) throw new Error(fnName + " failed: HTTP " + res.status);
-      return res.json();
-    }).then((envelope) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeoutId);
-      if (envelope && envelope.ok) resolve(envelope.result);
-      else reject(new Error(envelope && envelope.error && envelope.error.message || fnName + " failed"));
-    }).catch((err) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeoutId);
-      reject(err instanceof Error ? err : new Error(String(err)));
+  const perAttemptTimeout = (timeoutMs || GS_CALL_TIMEOUT_MS) + FETCH_TRANSPORT_EXTRA_MS;
+  const dopostUrl = typeof window.__DOPOST_URL__ === "string" && window.__DOPOST_URL__ ? window.__DOPOST_URL__ : GAS_DOPOST_URL;
+  const bodyStr = JSON.stringify({ fn: fnName, arg });
+  function attempt(retriesLeft) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        controller.abort();
+        reject(new Error(fnName + " timed out after " + perAttemptTimeout + "ms"));
+      }, perAttemptTimeout);
+      fetch(dopostUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: bodyStr,
+        signal: controller.signal
+      }).then((res) => {
+        if (!res.ok) throw new Error(fnName + " failed: HTTP " + res.status);
+        return res.json();
+      }).then((envelope) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        if (envelope && envelope.ok) resolve(envelope.result);
+        else reject(new Error(envelope && envelope.error && envelope.error.message || fnName + " failed"));
+      }).catch((err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      });
     });
-  });
+  }
+  function run(retriesLeft) {
+    return attempt(retriesLeft).catch((err) => {
+      const msg = err && err.message;
+      if (msg && !msg.includes("timed out") && !msg.includes("HTTP ") && !msg.includes("Failed to fetch") && !msg.includes("NetworkError") && !msg.includes("AbortError") && !msg.includes("JSON")) {
+        throw err;
+      }
+      if (retriesLeft <= 0) throw err;
+      console.warn(fnName + " transient error, " + retriesLeft + " retries left:", msg);
+      return new Promise((r) => setTimeout(r, GSCALL_RETRY_DELAY_MS)).then(() => run(retriesLeft - 1));
+    });
+  }
+  const t0 = Date.now();
+  return run(GSCALL_MAX_RETRIES).then(
+    (result) => {
+      diagLog({ fn: fnName, ok: true, ms: Date.now() - t0, err: null, at: (/* @__PURE__ */ new Date()).toISOString(), retries: GSCALL_MAX_RETRIES });
+      return result;
+    },
+    (err) => {
+      diagLog({ fn: fnName, ok: false, ms: Date.now() - t0, err: err && err.message || String(err), at: (/* @__PURE__ */ new Date()).toISOString(), retries: GSCALL_MAX_RETRIES });
+      throw err;
+    }
+  );
 }
 function loadPersonalPrefs() {
   let activeViewId = null;
@@ -1842,23 +1878,53 @@ function SyncIndicator({ status, compact }) {
     return /* @__PURE__ */ React.createElement("span", { style: { ...base, color: "var(--ready)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Icon, { name: "refresh", size: compact ? 11 : 13 }), " synced");
   return /* @__PURE__ */ React.createElement("span", { style: { ...base, opacity: 0 } }, "\xB7");
 }
+function formatDiagLog() {
+  const log = getDiagLog();
+  if (!log.length) return "No recent network calls logged.";
+  return "Recent network calls (newest first):\n\n" + log.slice().reverse().map((e, i) => {
+    const time = e.at ? e.at.replace("T", " ").replace(/\.\d+Z$/, "") : "?";
+    const status = e.ok ? "\u2713 OK" : "\u2717 FAIL";
+    const dur = e.ms != null ? e.ms + "ms" : "?";
+    const err = e.err ? "\n   Error: " + e.err : "";
+    return i + 1 + ". " + time + "  " + e.fn + "  " + status + "  (" + dur + ")" + err;
+  }).join("\n");
+}
 function SaveIndicator({ state, compact, lastError }) {
   const base = compact ? styles.saveTagCompact : styles.saveTag;
+  const showDiag = () => alert(
+    (lastError ? "Last save error:\n" + lastError + "\n\n" : "") + formatDiagLog()
+  );
   if (state === "saving") return /* @__PURE__ */ React.createElement("span", { style: { ...base, color: "var(--yellow)" } }, "saving\u2026");
   if (state === "offline")
     return /* @__PURE__ */ React.createElement(
       "span",
       {
-        style: { ...base, color: "var(--needs)", display: "flex", alignItems: "center", gap: 4, cursor: lastError ? "pointer" : "default" },
-        title: lastError || void 0,
-        onClick: lastError ? () => alert("Last save error:\n\n" + lastError) : void 0
+        style: { ...base, color: "var(--needs)", display: "flex", alignItems: "center", gap: 4, cursor: "pointer" },
+        title: lastError || "Tap for diagnostics",
+        onClick: showDiag
       },
       /* @__PURE__ */ React.createElement(Icon, { name: "wifiOff", size: compact ? 11 : 13 }),
       " Offline"
     );
-  if (state === "error") return /* @__PURE__ */ React.createElement("span", { style: { ...base, color: "var(--needs)" } }, "save failed");
+  if (state === "error")
+    return /* @__PURE__ */ React.createElement(
+      "span",
+      {
+        style: { ...base, color: "var(--needs)", cursor: "pointer" },
+        onClick: showDiag
+      },
+      "save failed"
+    );
   if (state === "saved")
-    return /* @__PURE__ */ React.createElement("span", { style: { ...base, color: "var(--ready)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: compact ? 11 : 13 }), " saved");
+    return /* @__PURE__ */ React.createElement(
+      "span",
+      {
+        style: { ...base, color: "var(--ready)", display: "flex", alignItems: "center", gap: 4, cursor: "pointer" },
+        onClick: showDiag
+      },
+      /* @__PURE__ */ React.createElement(Icon, { name: "check", size: compact ? 11 : 13 }),
+      " saved"
+    );
   return /* @__PURE__ */ React.createElement("span", { style: { ...base, opacity: 0 } }, "\xB7");
 }
 function SongTitleAndFeatures({ song }) {
