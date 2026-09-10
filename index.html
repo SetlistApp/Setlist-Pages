@@ -35,6 +35,10 @@
   </style>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Supabase Realtime — optional, for instant cross-device sync notifications.
+       If this fails to load (offline, CDN down) the app falls back to polling. -->
+  <script crossorigin src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js"
+          onerror=""></script>
 </head>
 <body>
   <div id="root"></div>
@@ -483,7 +487,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.7.3.7";
+const APP_VERSION = "1.8-beta1";
 function versionBase(v) {
   return String(v || "").split("-")[0].split(".").slice(0, 3).join(".");
 }
@@ -766,6 +770,7 @@ function App() {
   const [lastSaveError, setLastSaveError] = useState(null);
   const lastSaveSuccessAt = useRef(0);
   const dataVersionRef = useRef(null);
+  const realtimeChannelRef = useRef(null);
   function reportSaveFailure(err) {
     saveFailureStreak.current += 1;
     if (err) {
@@ -784,6 +789,11 @@ function App() {
     if (syncStatusRef.current === "error") {
       syncFailureStreak.current = 0;
       setSyncStatus("synced");
+    }
+    try {
+      var ch = realtimeChannelRef.current;
+      if (ch) ch.send({ type: "broadcast", event: "data_changed", payload: {} });
+    } catch (e) {
     }
   }
   const syncFailureStreak = useRef(0);
@@ -1272,6 +1282,41 @@ function App() {
       runSyncCheckRef.current();
     }, AUTO_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
+  }, [loaded]);
+  useEffect(() => {
+    if (!loaded) return;
+    var url = window.__SUPABASE_URL__;
+    var key = window.__SUPABASE_ANON_KEY__;
+    var channelName = window.__SUPABASE_CHANNEL__ || "sync";
+    if (!url || !key || typeof window.supabase === "undefined") {
+      if (url && key) console.warn("[Realtime] Supabase client not loaded \u2014 falling back to polling");
+      return;
+    }
+    try {
+      var client = window.supabase.createClient(url, key);
+      var ch = client.channel(channelName);
+      var nudgeTimer = null;
+      ch.on("broadcast", { event: "data_changed" }, function() {
+        if (nudgeTimer) clearTimeout(nudgeTimer);
+        nudgeTimer = setTimeout(function() {
+          nudgeTimer = null;
+          runSyncCheckRef.current();
+        }, 500);
+      });
+      ch.subscribe(function(status) {
+        if (status === "SUBSCRIBED") {
+          console.log("[Realtime] Connected to channel:", channelName);
+        }
+      });
+      realtimeChannelRef.current = ch;
+      return function() {
+        if (nudgeTimer) clearTimeout(nudgeTimer);
+        ch.unsubscribe();
+        realtimeChannelRef.current = null;
+      };
+    } catch (e) {
+      console.warn("[Realtime] Failed to connect:", e);
+    }
   }, [loaded]);
   function retryAllPendingSaves() {
     for (const id in songSaveTimers.current) {

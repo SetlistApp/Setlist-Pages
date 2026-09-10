@@ -9,7 +9,7 @@
  * Code_v*.gs — bump all of them together on every ship.
  */
 
-var SW_VERSION = "1.7.3.7";
+var SW_VERSION = "1.8-beta1";
 var CACHE = "setlist-shell-" + SW_VERSION;
 
 /* The app shell: the page itself plus the two CDN scripts it pulls today.
@@ -19,7 +19,8 @@ var SHELL = [
   "./",
   "./index.html",
   "https://unpkg.com/react@18/umd/react.production.min.js",
-  "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
+  "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js",
+  "https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js"
 ];
 
 self.addEventListener("install", function (event) {
