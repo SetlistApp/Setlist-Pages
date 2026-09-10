@@ -498,7 +498,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "2.0.1-beta2";
+const APP_VERSION = "2.0.1-beta3";
 var _useSupabaseData = typeof window !== "undefined" && !!window.__SUPABASE_DATA__;
 var _realtimeStatus = "not configured";
 function versionBase(v) {
@@ -4940,7 +4940,7 @@ const rawStyles = {
   todoCompletedLabel: { fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--dim)", fontFamily: "var(--display)", fontWeight: 600, padding: "2px 2px 6px" },
   todoAddBtn: { display: "flex", alignItems: "center", gap: 6, justifyContent: "center", background: "none", border: "1px dashed var(--line)", color: "var(--dim)", borderRadius: 7, padding: "9px 12px", fontSize: 13, cursor: "pointer", marginTop: 6, width: "100%" },
   todoInlineAddBtn: { display: "flex", alignItems: "center", gap: 5, background: "none", border: "1px dashed var(--line)", color: "var(--dim)", borderRadius: 6, padding: "5px 10px", fontSize: 12.5, cursor: "pointer" },
-  todoScreenOverlay: { position: "absolute", inset: 0, background: "var(--bg)", display: "flex", flexDirection: "column", touchAction: "pan-y" },
+  todoScreenOverlay: { position: "absolute", inset: 0, background: "var(--bg)", display: "flex", flexDirection: "column", touchAction: "pan-y", zIndex: 40 },
   todoScreenHeader: { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderBottom: "1px solid var(--line)" },
   todoScreenBack: { background: "none", border: "none", display: "flex", padding: 4 },
   todoScreenTitle: { fontFamily: "var(--display)", fontWeight: 600, fontSize: 17, color: "var(--text)" },
