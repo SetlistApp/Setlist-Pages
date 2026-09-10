@@ -498,7 +498,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "2.0.1-beta3";
+const APP_VERSION = "2.0.2-beta1";
 var _useSupabaseData = typeof window !== "undefined" && !!window.__SUPABASE_DATA__;
 var _realtimeStatus = "not configured";
 function versionBase(v) {
@@ -3024,7 +3024,7 @@ function Metronome({ bpm, onSetBpm }) {
     "+"
   ), /* @__PURE__ */ React.createElement("button", { type: "button", style: styles.metroTap, onClick: handleTap }, "Tap")), /* @__PURE__ */ React.createElement("div", { style: styles.metroHint }, hint));
 }
-function LinksListEditor({ value, onChange, onFieldBlur, songId, songTitle }) {
+function LinksListEditor({ value, onChange, onFieldBlur, songId, songTitle, hideAddLink }) {
   const links = value || [];
   const byId = useMemo(() => Object.fromEntries(links.map((l) => [l.id, l])), [links]);
   const [localOrder, setLocalOrder] = useState(links.map((l) => l.id));
@@ -3147,7 +3147,7 @@ function LinksListEditor({ value, onChange, onFieldBlur, songId, songTitle }) {
       delBusyId === id ? "Deleting\u2026" : delConfirmId === id ? "Tap again \u2014 move the file to Drive trash" : "Delete file",
       delConfirmId !== id && delBusyId !== id && /* @__PURE__ */ React.createElement("span", { style: styles.linkDelMenuSub }, "recoverable ~30 days")
     ), delErr && /* @__PURE__ */ React.createElement("div", { style: styles.uploadErrText }, delErr), /* @__PURE__ */ React.createElement("button", { onClick: closeDelMenu, style: styles.linkDelMenuBtn, disabled: delBusyId === id }, "Cancel")));
-  }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: addLink, style: styles.arrAddBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 13 }), " Add link"), songId && /* @__PURE__ */ React.createElement("button", { onClick: () => setShowAddAudio(true), style: styles.arrAddBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 13 }), " Add audio"), songId && CAN_RECORD && /* @__PURE__ */ React.createElement("button", { onClick: () => setShowRecord(true), style: styles.arrAddBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "mic", size: 13 }), " Record")), showAddAudio && /* @__PURE__ */ React.createElement(
+  }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, !hideAddLink && /* @__PURE__ */ React.createElement("button", { onClick: addLink, style: styles.arrAddBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 13 }), " Add link"), songId && /* @__PURE__ */ React.createElement("button", { onClick: () => setShowAddAudio(true), style: styles.arrAddBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 13 }), " Add audio"), songId && CAN_RECORD && /* @__PURE__ */ React.createElement("button", { onClick: () => setShowRecord(true), style: styles.arrAddBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "mic", size: 13 }), " Record")), showAddAudio && /* @__PURE__ */ React.createElement(
     AddRecordingSheet,
     {
       songId,
@@ -4224,6 +4224,8 @@ function SongDetail({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showZoomControl, setShowZoomControl] = useState(false);
   const [linksEditModeFor, setLinksEditModeFor] = useState(null);
+  const [showAddAudio, setShowAddAudio] = useState(false);
+  const [showRecord, setShowRecord] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [collapsed, setCollapsed] = useState(() => restoreCollapsed || defaultCollapsedState(song, sectionDefsById));
   const detailScrollElRef = useRef(null);
@@ -4381,7 +4383,7 @@ function SongDetail({
         },
         style: styles.sectionMenuItem
       },
-      linksEditModeFor === id ? "Done editing links" : "Edit links"
+      linksEditModeFor === id ? def.id === "recording" ? "Done editing recordings" : "Done editing links" : def.id === "recording" ? "Edit recordings" : "Edit links"
     ), /* @__PURE__ */ React.createElement(
       "button",
       {
@@ -4559,26 +4561,19 @@ function SongDetail({
         const editingThisLinks = linksEditModeFor === id;
         const isRecording = def.id === "recording";
         if (activeTab === "attachments") {
-          return /* @__PURE__ */ React.createElement(React.Fragment, { key: id }, emptyDividerEl, /* @__PURE__ */ React.createElement("div", { ref: setRowRef(id), style: { ...styles.attachSection, ...activeDragId === id ? styles.dragging : {} } }, /* @__PURE__ */ React.createElement("div", { style: styles.attachSectionHeader }, sectionEditMode && /* @__PURE__ */ React.createElement("span", { onPointerDown: startDrag(id), style: { ...styles.atomicDragHandle, marginTop: 0 }, "data-swipe-ignore": "true" }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 15, color: "var(--dim)" })), /* @__PURE__ */ React.createElement("span", { style: { ...styles.atomicLabel, flex: 1 } }, def.label), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setOpenMenuFor((cur) => cur === id ? null : id), style: styles.atomicMenuBtn, "aria-label": "Section options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 15, color: "var(--dim)" })), renderMenu(id, def))), editingThisLinks ? /* @__PURE__ */ React.createElement("div", { style: { padding: "0 4px 8px" } }, /* @__PURE__ */ React.createElement(
+          return /* @__PURE__ */ React.createElement(React.Fragment, { key: id }, emptyDividerEl, /* @__PURE__ */ React.createElement("div", { ref: setRowRef(id), style: { ...styles.attachSection, ...activeDragId === id ? styles.dragging : {} } }, /* @__PURE__ */ React.createElement("div", { style: styles.attachSectionHeader }, sectionEditMode && /* @__PURE__ */ React.createElement("span", { onPointerDown: startDrag(id), style: { ...styles.atomicDragHandle, marginTop: 0 }, "data-swipe-ignore": "true" }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 15, color: "var(--dim)" })), /* @__PURE__ */ React.createElement("span", { style: { ...styles.atomicLabel, flex: 1 } }, def.label), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setOpenMenuFor((cur) => cur === id ? null : id), style: styles.atomicMenuBtn, "aria-label": "Section options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 15, color: "var(--dim)" })), renderMenu(id, def))), editingThisLinks && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 4px 8px" } }, /* @__PURE__ */ React.createElement(
             LinksListEditor,
             {
               value: linksArr,
               onChange: (next) => onChange({ [def.id]: next }),
               onFieldBlur,
               songId: isRecording ? song.id : void 0,
-              songTitle: isRecording ? song.title : void 0
+              songTitle: isRecording ? song.title : void 0,
+              hideAddLink: isRecording
             }
-          )) : /* @__PURE__ */ React.createElement(React.Fragment, null, linksArr.length > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.attachList }, linksArr.map((l) => /* @__PURE__ */ React.createElement("a", { key: l.id, href: l.url, target: "_blank", rel: "noopener noreferrer", style: styles.attachItem }, /* @__PURE__ */ React.createElement("div", { style: styles.attachItemIcon }, /* @__PURE__ */ React.createElement(Icon, { name: isRecording ? "mic" : "externalLink", size: 14, color: "var(--gold)" })), /* @__PURE__ */ React.createElement("div", { style: styles.attachItemText }, /* @__PURE__ */ React.createElement("div", { style: styles.attachItemName }, l.name || l.url)), /* @__PURE__ */ React.createElement(Icon, { name: "chevronRight", size: 14, color: "var(--dim)" })))), /* @__PURE__ */ React.createElement("div", { style: styles.attachActionBtns }, isRecording && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { onClick: () => {
+          )), !editingThisLinks && linksArr.length > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.attachList }, linksArr.map((l) => /* @__PURE__ */ React.createElement("a", { key: l.id, href: l.url, target: "_blank", rel: "noopener noreferrer", style: styles.attachItem }, /* @__PURE__ */ React.createElement("div", { style: styles.attachItemIcon }, /* @__PURE__ */ React.createElement(Icon, { name: isRecording ? "mic" : "externalLink", size: 14, color: "var(--gold)" })), /* @__PURE__ */ React.createElement("div", { style: styles.attachItemText }, /* @__PURE__ */ React.createElement("div", { style: styles.attachItemName }, l.name || l.url)), /* @__PURE__ */ React.createElement(Icon, { name: "chevronRight", size: 14, color: "var(--dim)" })))), /* @__PURE__ */ React.createElement("div", { style: styles.attachActionBtns }, isRecording && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowAddAudio(true), style: styles.attachActionBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 13, color: "var(--dim)" }), " Add audio"), CAN_RECORD && /* @__PURE__ */ React.createElement("button", { onClick: () => setShowRecord(true), style: styles.attachActionBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "mic", size: 13, color: "var(--dim)" }), " Record"), /* @__PURE__ */ React.createElement("button", { onClick: () => setLinksEditModeFor(editingThisLinks ? null : id), style: styles.attachActionBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "pencil", size: 13, color: "var(--dim)" }), " ", editingThisLinks ? "Done editing recordings" : "Edit recordings")), !isRecording && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { onClick: () => {
             setLinksEditModeFor(id);
-          }, style: styles.attachActionBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 13, color: "var(--dim)" }), " Add audio"), CAN_RECORD && /* @__PURE__ */ React.createElement("button", { onClick: () => {
-            setLinksEditModeFor(id);
-          }, style: styles.attachActionBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "mic", size: 13, color: "var(--dim)" }), " Record"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
-            setLinksEditModeFor(id);
-          }, style: styles.attachActionBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "pencil", size: 13, color: "var(--dim)" }), " Edit recordings")), !isRecording && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { onClick: () => {
-            setLinksEditModeFor(id);
-          }, style: styles.attachActionBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 13, color: "var(--dim)" }), " Add link"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
-            setLinksEditModeFor(id);
-          }, style: styles.attachActionBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "pencil", size: 13, color: "var(--dim)" }), " Edit links"))))));
+          }, style: styles.attachActionBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 13, color: "var(--dim)" }), " Add link"), /* @__PURE__ */ React.createElement("button", { onClick: () => setLinksEditModeFor(editingThisLinks ? null : id), style: styles.attachActionBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "pencil", size: 13, color: "var(--dim)" }), " ", editingThisLinks ? "Done editing links" : "Edit links")))));
         }
         return /* @__PURE__ */ React.createElement(React.Fragment, { key: id }, emptyDividerEl, /* @__PURE__ */ React.createElement("div", { ref: setRowRef(id), style: { ...styles.atomicInlineRow, alignItems: "flex-start", ...openMenuFor === id ? { position: "relative", zIndex: 25 } : {}, ...activeDragId === id ? styles.dragging : {} } }, sectionEditMode && /* @__PURE__ */ React.createElement("span", { onPointerDown: startDrag(id), style: { ...styles.atomicDragHandle, marginTop: 4 }, "data-swipe-ignore": "true" }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 15, color: "var(--dim)" })), renamingSectionId === id ? /* @__PURE__ */ React.createElement(
           "input",
@@ -4683,6 +4678,35 @@ function SongDetail({
       }
     ),
     showZoomControl && /* @__PURE__ */ React.createElement(ZoomControl, { onBeforeReload, onClose: () => setShowZoomControl(false) }),
+    showAddAudio && /* @__PURE__ */ React.createElement(
+      AddRecordingSheet,
+      {
+        songId: song.id,
+        songTitle: song.title,
+        onClose: () => setShowAddAudio(false),
+        onUploaded: (link) => {
+          onChange({ recording: [...song.recording || [], link] });
+          setShowAddAudio(false);
+        }
+      }
+    ),
+    showRecord && /* @__PURE__ */ React.createElement(
+      RecordSheet,
+      {
+        songId: song.id,
+        songTitle: song.title,
+        existingNames: (song.recording || []).map((l) => l.name),
+        onClose: () => setShowRecord(false),
+        onChooseFile: () => {
+          setShowRecord(false);
+          setShowAddAudio(true);
+        },
+        onUploaded: (link) => {
+          onChange({ recording: [...song.recording || [], link] });
+          setShowRecord(false);
+        }
+      }
+    ),
     /* @__PURE__ */ React.createElement("div", { style: styles.navFooter }, /* @__PURE__ */ React.createElement("button", { disabled: !prevId, onClick: () => prevId && onNavigate(prevId), style: { ...styles.navBtn, ...!prevId ? styles.navBtnDisabled : {} } }, /* @__PURE__ */ React.createElement(Icon, { name: "chevronLeft", size: 16 }), " Previous"), /* @__PURE__ */ React.createElement("button", { disabled: !nextId, onClick: () => nextId && onNavigate(nextId), style: { ...styles.navBtn, ...!nextId ? styles.navBtnDisabled : {} } }, "Next ", /* @__PURE__ */ React.createElement(Icon, { name: "chevronRight", size: 16 })))
   );
 }
