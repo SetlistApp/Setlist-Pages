@@ -146,6 +146,17 @@ const BUILTIN_SECTION_DEFS = [
   { id: "recording", label: "Recordings", type: "linksList" },
   { id: "links", label: "Links", type: "linksList" }
 ];
+const SONG_DETAIL_TABS = ["overview", "chords", "attachments"];
+const SONG_DETAIL_TAB_LABELS = { overview: "Overview", chords: "Chords / Lyrics", attachments: "Attachments" };
+const SECTION_TAB_MAP = {
+  basicChords: "chords",
+  chordsLyrics: "chords",
+  recording: "attachments",
+  links: "attachments"
+};
+function sectionTab(id) {
+  return SECTION_TAB_MAP[id] || "overview";
+}
 const DOT_COLORS = [
   { id: "auto", label: "Auto", value: null },
   { id: "ready", label: "Ready", value: "#4fae7a" },
@@ -487,7 +498,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "2.0";
+const APP_VERSION = "2.0.1-beta1";
 var _useSupabaseData = typeof window !== "undefined" && !!window.__SUPABASE_DATA__;
 var _realtimeStatus = "not configured";
 function versionBase(v) {
@@ -4181,6 +4192,7 @@ function SongDetail({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showZoomControl, setShowZoomControl] = useState(false);
   const [linksEditModeFor, setLinksEditModeFor] = useState(null);
+  const [activeTab, setActiveTab] = useState("overview");
   const [collapsed, setCollapsed] = useState(() => restoreCollapsed || defaultCollapsedState(song, sectionDefsById));
   const detailScrollElRef = useRef(null);
   useEffect(() => {
@@ -4221,6 +4233,7 @@ function SongDetail({
     setShowMetaMenu(false);
     setShowDotPicker(false);
     setLinksEditModeFor(null);
+    setActiveTab("overview");
     if (!skippedInitialCollapseReset.current && restoreCollapsed) {
       skippedInitialCollapseReset.current = true;
     } else {
@@ -4437,12 +4450,26 @@ function SongDetail({
       },
       "Zoom"
     ), /* @__PURE__ */ React.createElement("button", { onClick: () => setConfirmDelete(true), style: { ...styles.sectionMenuItem, color: "var(--needs)" } }, "Delete song")))))),
-    /* @__PURE__ */ React.createElement("div", { ref: detailScrollElRef, onScroll: handleDetailScroll, style: styles.detailScroll }, /* @__PURE__ */ React.createElement("div", { style: styles.atomicList }, displayOrder.map((id, _idx) => {
+    /* @__PURE__ */ React.createElement("div", { style: styles.songTabBar }, SONG_DETAIL_TABS.map((t) => /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: t,
+        onClick: () => {
+          setActiveTab(t);
+          if (detailScrollElRef.current) detailScrollElRef.current.scrollTop = 0;
+        },
+        style: { ...styles.songTabBtn, ...activeTab === t ? styles.songTabBtnActive : {} }
+      },
+      SONG_DETAIL_TAB_LABELS[t]
+    ))),
+    /* @__PURE__ */ React.createElement("div", { ref: detailScrollElRef, onScroll: handleDetailScroll, style: styles.detailScroll }, /* @__PURE__ */ React.createElement("div", { style: styles.atomicList }, displayOrder.filter((id) => sectionTab(id) === activeTab).map((id, _idx, filteredArr) => {
       const def = sectionDefsById[id];
       if (!def) return null;
       const hasData = sectionHasData(def, song);
       const isEmpty = emptyIds.has(id);
-      const showEmptyDivider = _idx === firstEmptyIdx && hasFilledSections && firstEmptyIdx > 0;
+      const tabFirstEmptyIdx = filteredArr.findIndex((fid) => emptyIds.has(fid));
+      const tabHasFilled = filteredArr.some((fid) => !emptyIds.has(fid));
+      const showEmptyDivider = _idx === tabFirstEmptyIdx && tabHasFilled && tabFirstEmptyIdx > 0;
       const isLinksList = def.type === "linksList";
       const isTodoList = def.type === "todoList";
       const todoArrForInline = isTodoList ? song[def.id] || [] : null;
@@ -4498,6 +4525,29 @@ function SongDetail({
       if (isLinksList) {
         const linksArr = song[def.id] || [];
         const editingThisLinks = linksEditModeFor === id;
+        const isRecording = def.id === "recording";
+        if (activeTab === "attachments") {
+          return /* @__PURE__ */ React.createElement(React.Fragment, { key: id }, emptyDividerEl, /* @__PURE__ */ React.createElement("div", { ref: setRowRef(id), style: { ...styles.attachSection, ...activeDragId === id ? styles.dragging : {} } }, /* @__PURE__ */ React.createElement("div", { style: styles.attachSectionHeader }, sectionEditMode && /* @__PURE__ */ React.createElement("span", { onPointerDown: startDrag(id), style: { ...styles.atomicDragHandle, marginTop: 0 }, "data-swipe-ignore": "true" }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 15, color: "var(--dim)" })), /* @__PURE__ */ React.createElement("span", { style: { ...styles.atomicLabel, flex: 1 } }, def.label), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setOpenMenuFor((cur) => cur === id ? null : id), style: styles.atomicMenuBtn, "aria-label": "Section options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 15, color: "var(--dim)" })), renderMenu(id, def))), editingThisLinks ? /* @__PURE__ */ React.createElement("div", { style: { padding: "0 4px 8px" } }, /* @__PURE__ */ React.createElement(
+            LinksListEditor,
+            {
+              value: linksArr,
+              onChange: (next) => onChange({ [def.id]: next }),
+              onFieldBlur,
+              songId: isRecording ? song.id : void 0,
+              songTitle: isRecording ? song.title : void 0
+            }
+          )) : /* @__PURE__ */ React.createElement(React.Fragment, null, linksArr.length > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.attachList }, linksArr.map((l) => /* @__PURE__ */ React.createElement("a", { key: l.id, href: l.url, target: "_blank", rel: "noopener noreferrer", style: styles.attachItem }, /* @__PURE__ */ React.createElement("div", { style: styles.attachItemIcon }, /* @__PURE__ */ React.createElement(Icon, { name: isRecording ? "mic" : "externalLink", size: 14, color: "var(--gold)" })), /* @__PURE__ */ React.createElement("div", { style: styles.attachItemText }, /* @__PURE__ */ React.createElement("div", { style: styles.attachItemName }, l.name || l.url)), /* @__PURE__ */ React.createElement(Icon, { name: "chevronRight", size: 14, color: "var(--dim)" })))), /* @__PURE__ */ React.createElement("div", { style: styles.attachActionBtns }, isRecording && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { onClick: () => {
+            setLinksEditModeFor(id);
+          }, style: styles.attachActionBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 13, color: "var(--dim)" }), " Add audio"), CAN_RECORD && /* @__PURE__ */ React.createElement("button", { onClick: () => {
+            setLinksEditModeFor(id);
+          }, style: styles.attachActionBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "mic", size: 13, color: "var(--dim)" }), " Record"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+            setLinksEditModeFor(id);
+          }, style: styles.attachActionBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "pencil", size: 13, color: "var(--dim)" }), " Edit recordings")), !isRecording && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { onClick: () => {
+            setLinksEditModeFor(id);
+          }, style: styles.attachActionBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "plus", size: 13, color: "var(--dim)" }), " Add link"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+            setLinksEditModeFor(id);
+          }, style: styles.attachActionBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "pencil", size: 13, color: "var(--dim)" }), " Edit links"))))));
+        }
         return /* @__PURE__ */ React.createElement(React.Fragment, { key: id }, emptyDividerEl, /* @__PURE__ */ React.createElement("div", { ref: setRowRef(id), style: { ...styles.atomicInlineRow, alignItems: "flex-start", ...openMenuFor === id ? { position: "relative", zIndex: 25 } : {}, ...activeDragId === id ? styles.dragging : {} } }, sectionEditMode && /* @__PURE__ */ React.createElement("span", { onPointerDown: startDrag(id), style: { ...styles.atomicDragHandle, marginTop: 4 }, "data-swipe-ignore": "true" }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 15, color: "var(--dim)" })), renamingSectionId === id ? /* @__PURE__ */ React.createElement(
           "input",
           {
@@ -4801,6 +4851,20 @@ const rawStyles = {
   textarea: { width: "100%", background: "var(--surface-raised)", border: "1px solid var(--line)", borderRadius: 8, padding: "7px 8px", color: "var(--text)", fontSize: 16, lineHeight: 1.5, resize: "vertical" },
   linkChipZone: { flex: 1, minWidth: 0, display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 8 },
   linkChip: { display: "flex", alignItems: "center", gap: 6, background: "var(--surface-raised)", border: "1px solid var(--line)", borderRadius: 20, padding: "7px 14px", fontSize: 13, color: "var(--gold)", textDecoration: "none" },
+  // Song detail tab bar
+  songTabBar: { display: "flex", flexShrink: 0, borderBottom: "1px solid var(--line)", padding: "0 14px", gap: 0 },
+  songTabBtn: { flex: 1, background: "none", border: "none", borderBottom: "2px solid transparent", color: "var(--dim)", fontFamily: "var(--display)", fontWeight: 500, fontSize: 13.5, letterSpacing: "0.04em", textTransform: "uppercase", padding: "10px 4px 8px", cursor: "pointer", textAlign: "center" },
+  songTabBtnActive: { color: "var(--gold)", borderBottomColor: "var(--gold)" },
+  // Attachments tab styles
+  attachSection: { borderBottom: "1px solid var(--line)", padding: "0 14px" },
+  attachSectionHeader: { display: "flex", alignItems: "center", gap: 5, padding: "9px 0" },
+  attachList: { display: "flex", flexDirection: "column", gap: 0 },
+  attachItem: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--line)", textDecoration: "none", cursor: "pointer" },
+  attachItemIcon: { width: 32, height: 32, borderRadius: 7, background: "var(--surface)", border: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  attachItemText: { flex: 1, minWidth: 0 },
+  attachItemName: { fontFamily: "var(--body)", fontSize: 14, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  attachActionBtns: { display: "flex", gap: 8, flexWrap: "wrap", padding: "8px 0 12px" },
+  attachActionBtn: { display: "flex", alignItems: "center", gap: 5, background: "none", border: "1px dashed var(--line)", borderRadius: 7, padding: "7px 12px", color: "var(--dim)", fontFamily: "var(--body)", fontSize: 13, cursor: "pointer" },
   linksEditList: { display: "flex", flexDirection: "column", gap: 5 },
   linksEditRow: { background: "var(--surface-raised)", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 8px" },
   linksEditRowTop: { display: "flex", alignItems: "center", gap: 7, marginBottom: 4 },
