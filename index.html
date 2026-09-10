@@ -474,8 +474,8 @@ const RELOAD_SNAPSHOT_KEY = "bandSetlist_reloadSnapshot";
 const RELOAD_SNAPSHOT_MAX_AGE_MS = 6e4;
 const RETRY_DELAY_MS = 12e3;
 const RETRY_MAX_DELAY_MS = 6e4;
-const AUTO_REFRESH_INTERVAL_MS = 1e4;
-const EDIT_IDLE_SAVE_MS = 2500;
+const AUTO_REFRESH_INTERVAL_MS = 7e3;
+const EDIT_IDLE_SAVE_MS = 1500;
 const POST_SAVE_SYNC_COOLDOWN_MS = 3e3;
 const CONFIRMED_PATCH_TTL_MS = 1e4;
 function nextRetryDelay(attempt) {
@@ -483,7 +483,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.7.3.4";
+const APP_VERSION = "1.7.3.5";
 function versionBase(v) {
   return String(v || "").split("-")[0].split(".").slice(0, 3).join(".");
 }
@@ -1879,7 +1879,7 @@ function Header({ isBeta, saveState, syncStatus, onRefresh, refreshing, manualRe
   const [showMenu, setShowMenu] = useState(false);
   const [showZoomControl, setShowZoomControl] = useState(false);
   useCloseMenuOnOutsideClick(showMenu, () => setShowMenu(false));
-  return /* @__PURE__ */ React.createElement("div", { style: styles.header }, /* @__PURE__ */ React.createElement("div", { style: styles.marqueeWrap }, isBeta ? /* @__PURE__ */ React.createElement("span", { style: styles.betaLogo }, "BETA") : /* @__PURE__ */ React.createElement("img", { src: LOGO_DATA_URI, alt: "Bellafaire Brothers", style: styles.logoImg }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 1, marginLeft: 6 } }, /* @__PURE__ */ React.createElement(SaveIndicator, { state: saveState, compact: true, lastError: lastSaveError }), /* @__PURE__ */ React.createElement(SyncIndicator, { status: syncStatus, compact: true }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { onClick: onToggleSearch, style: { ...styles.refreshBtn, ...searchOpen ? { borderColor: "var(--gold)" } : {} }, "aria-label": "Search" }, /* @__PURE__ */ React.createElement(Icon, { name: "search", size: 15, color: searchOpen ? "var(--gold)" : "var(--dim)" })), onOpenTodoScreen && /* @__PURE__ */ React.createElement("button", { onClick: onOpenTodoScreen, style: styles.todoHeaderBtn, "aria-label": "To-do list" }, /* @__PURE__ */ React.createElement(Icon, { name: "listCheck", size: 17, color: "var(--dim)" }), openTodoCount > 0 && /* @__PURE__ */ React.createElement("span", { style: styles.todoHeaderBadge }, openTodoCount)), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowMenu((v) => !v), style: styles.metaEllipsisBtn, "aria-label": "View and set options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 16, color: "var(--dim)" })), showMenu && /* @__PURE__ */ React.createElement("div", { style: styles.metaMenu }, views && activeViewId && onSelectView && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: styles.metaMenuLabel }, "Viewing as"), /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { style: styles.header }, /* @__PURE__ */ React.createElement("div", { style: styles.marqueeWrap }, isBeta ? /* @__PURE__ */ React.createElement("span", { style: styles.betaLogo }, "BETA") : /* @__PURE__ */ React.createElement("img", { src: LOGO_DATA_URI, alt: "Bellafaire Brothers", style: styles.logoImg }), /* @__PURE__ */ React.createElement(StatusDot, { saveState, syncStatus, lastError: lastSaveError })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { onClick: onToggleSearch, style: { ...styles.refreshBtn, ...searchOpen ? { borderColor: "var(--gold)" } : {} }, "aria-label": "Search" }, /* @__PURE__ */ React.createElement(Icon, { name: "search", size: 15, color: searchOpen ? "var(--gold)" : "var(--dim)" })), onOpenTodoScreen && /* @__PURE__ */ React.createElement("button", { onClick: onOpenTodoScreen, style: styles.todoHeaderBtn, "aria-label": "To-do list" }, /* @__PURE__ */ React.createElement(Icon, { name: "listCheck", size: 17, color: "var(--dim)" }), openTodoCount > 0 && /* @__PURE__ */ React.createElement("span", { style: styles.todoHeaderBadge }, openTodoCount)), /* @__PURE__ */ React.createElement("div", { style: { position: "relative" }, "data-menu-root": true }, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowMenu((v) => !v), style: styles.metaEllipsisBtn, "aria-label": "View and set options" }, /* @__PURE__ */ React.createElement(Icon, { name: "moreHorizontal", size: 16, color: "var(--dim)" })), showMenu && /* @__PURE__ */ React.createElement("div", { style: styles.metaMenu }, views && activeViewId && onSelectView && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: styles.metaMenuLabel }, "Viewing as"), /* @__PURE__ */ React.createElement(
     "select",
     {
       value: activeViewId,
@@ -1933,6 +1933,59 @@ function SyncIndicator({ status, compact }) {
   if (status === "synced")
     return /* @__PURE__ */ React.createElement("span", { style: { ...base, color: "var(--ready)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Icon, { name: "refresh", size: compact ? 11 : 13 }), " synced");
   return /* @__PURE__ */ React.createElement("span", { style: { ...base, opacity: 0 } }, "\xB7");
+}
+function StatusDot({ saveState, syncStatus, lastError }) {
+  let color, label, pulse;
+  if (saveState === "offline" || syncStatus === "error") {
+    color = "var(--needs)";
+    label = saveState === "offline" ? "Offline" : "Sync error";
+    pulse = true;
+  } else if (saveState === "error") {
+    color = "var(--needs)";
+    label = "Save failed";
+    pulse = true;
+  } else if (saveState === "saving") {
+    color = "var(--yellow)";
+    label = "Saving\u2026";
+    pulse = true;
+  } else if (syncStatus === "syncing") {
+    color = "var(--yellow)";
+    label = "Syncing\u2026";
+    pulse = false;
+  } else if (syncStatus === "paused") {
+    color = "var(--yellow)";
+    label = "Paused";
+    pulse = false;
+  } else if (saveState === "saved") {
+    color = "var(--ready)";
+    label = "Saved \u2713";
+    pulse = false;
+  } else if (syncStatus === "synced") {
+    color = "var(--ready)";
+    label = "Synced";
+    pulse = false;
+  } else {
+    color = "var(--ready)";
+    label = "Ready";
+    pulse = false;
+  }
+  const showDiag = () => alert(
+    (lastError ? "Last save error:\n" + lastError + "\n\n" : "") + formatDiagLog()
+  );
+  return /* @__PURE__ */ React.createElement(
+    "span",
+    {
+      style: styles.statusDot,
+      onClick: showDiag,
+      title: lastError || "Tap for diagnostics"
+    },
+    /* @__PURE__ */ React.createElement("span", { style: {
+      ...styles.statusDotCircle,
+      background: color,
+      ...pulse ? styles.statusDotPulse : {}
+    } }),
+    /* @__PURE__ */ React.createElement("span", { style: { ...styles.statusDotLabel, color } }, label)
+  );
 }
 function formatDiagLog() {
   const log = getDiagLog();
@@ -3980,7 +4033,7 @@ function SongDetail({
       },
       onTouchStart: handleSwipeStart
     },
-    /* @__PURE__ */ React.createElement("div", { style: styles.detailTopBar }, /* @__PURE__ */ React.createElement("div", { style: styles.backStack }, /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: styles.backBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "chevronLeft", size: 19, color: "var(--text)" }), /* @__PURE__ */ React.createElement("span", null, "Setlist")), /* @__PURE__ */ React.createElement(SaveIndicator, { state: saveState, compact: true, lastError: lastSaveError }), /* @__PURE__ */ React.createElement(SyncIndicator, { status: syncStatus, compact: true })), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", flexShrink: 0, marginTop: 9 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowDotPicker((v) => !v), style: styles.dotBtn, "aria-label": "Change color" }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.dot, width: 13, height: 13, background: getDotColor(song) } })), showDotPicker && /* @__PURE__ */ React.createElement("div", { style: styles.dotPicker }, DOT_COLORS.map((c) => /* @__PURE__ */ React.createElement(
+    /* @__PURE__ */ React.createElement("div", { style: styles.detailTopBar }, /* @__PURE__ */ React.createElement("div", { style: styles.backStack }, /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: styles.backBtn }, /* @__PURE__ */ React.createElement(Icon, { name: "chevronLeft", size: 19, color: "var(--text)" }), /* @__PURE__ */ React.createElement("span", null, "Setlist")), /* @__PURE__ */ React.createElement(StatusDot, { saveState, syncStatus, lastError: lastSaveError })), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", flexShrink: 0, marginTop: 9 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setShowDotPicker((v) => !v), style: styles.dotBtn, "aria-label": "Change color" }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.dot, width: 13, height: 13, background: getDotColor(song) } })), showDotPicker && /* @__PURE__ */ React.createElement("div", { style: styles.dotPicker }, DOT_COLORS.map((c) => /* @__PURE__ */ React.createElement(
       "button",
       {
         key: c.id,
@@ -4224,6 +4277,10 @@ function FontLoad() {
 const spinCss = `
   .spin { animation: spin 0.9s linear infinite; }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes statusPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
   [data-metro-header]:active { background: rgba(255, 255, 255, 0.03); }
 `;
 const vars = {
@@ -4256,6 +4313,10 @@ const rawStyles = {
   logoImg: { height: 34, width: "auto", display: "block" },
   saveTag: { fontFamily: "var(--body)", fontSize: 12, color: "var(--dim)", minWidth: 54, textAlign: "right" },
   saveTagCompact: { fontFamily: "var(--body)", fontSize: 10.5, color: "var(--dim)", textAlign: "left", paddingLeft: 1 },
+  statusDot: { display: "flex", alignItems: "center", gap: 6, marginLeft: 8, cursor: "pointer", WebkitTapHighlightColor: "transparent" },
+  statusDotCircle: { width: 8, height: 8, borderRadius: "50%", flexShrink: 0, transition: "background 0.3s" },
+  statusDotPulse: { animation: "statusPulse 1.2s ease-in-out infinite" },
+  statusDotLabel: { fontFamily: "var(--body)", fontSize: 11, fontWeight: 600, letterSpacing: 0.3, whiteSpace: "nowrap", transition: "color 0.3s" },
   refreshBtn: { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
   tabRow: { display: "flex", gap: 6, padding: "0 16px 10px" },
   tab: { flex: 1, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 6px", color: "var(--dim)", fontFamily: "var(--display)", fontWeight: 600, fontSize: 12.5, letterSpacing: "0.03em", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 },
