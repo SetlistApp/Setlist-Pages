@@ -487,7 +487,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "2.0-beta1";
+const APP_VERSION = "2.0-beta2";
 var _useSupabaseData = typeof window !== "undefined" && !!window.__SUPABASE_DATA__;
 var _realtimeStatus = "not configured";
 function versionBase(v) {
@@ -604,16 +604,39 @@ const SUPABASE_SONG_COLUMNS = /* @__PURE__ */ new Set([
   "section",
   "tempoTimeSig"
 ]);
+const SUPABASE_CALL_TIMEOUT_MS = 3e4;
+const SUPABASE_MAX_RETRIES = 1;
+const SUPABASE_RETRY_DELAY_MS = 2e3;
 async function supabaseCall(label, fn) {
   var t0 = Date.now();
-  try {
-    var result = await fn();
-    diagLog({ fn: "sb:" + label, ok: true, ms: Date.now() - t0, err: null, at: (/* @__PURE__ */ new Date()).toISOString(), retries: 0 });
-    return result;
-  } catch (err) {
-    diagLog({ fn: "sb:" + label, ok: false, ms: Date.now() - t0, err: err && err.message || String(err), at: (/* @__PURE__ */ new Date()).toISOString(), retries: 0 });
-    throw err;
+  var lastErr;
+  for (var attempt = 0; attempt <= SUPABASE_MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await new Promise(function(r) {
+        setTimeout(r, SUPABASE_RETRY_DELAY_MS);
+      });
+    }
+    try {
+      var result = await Promise.race([
+        fn(),
+        new Promise(function(_, reject) {
+          setTimeout(function() {
+            reject(new Error("sb:" + label + " timed out after " + SUPABASE_CALL_TIMEOUT_MS + "ms"));
+          }, SUPABASE_CALL_TIMEOUT_MS);
+        })
+      ]);
+      diagLog({ fn: "sb:" + label, ok: true, ms: Date.now() - t0, err: null, at: (/* @__PURE__ */ new Date()).toISOString(), retries: attempt });
+      return result;
+    } catch (err) {
+      lastErr = err;
+      var msg = err && err.message || String(err);
+      var isTransient = !msg || msg.includes("timed out") || msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("AbortError") || msg.includes("TypeError") || msg.includes("fetch");
+      if (!isTransient || attempt >= SUPABASE_MAX_RETRIES) break;
+      console.warn("sb:" + label + " transient error, retrying:", msg);
+    }
   }
+  diagLog({ fn: "sb:" + label, ok: false, ms: Date.now() - t0, err: lastErr && lastErr.message || String(lastErr), at: (/* @__PURE__ */ new Date()).toISOString(), retries: attempt });
+  throw lastErr;
 }
 async function loadAllDataFromSupabase() {
   var client = getSupabaseClient();
