@@ -486,7 +486,7 @@ const APP_VERSION = "1.7.3.3";
 function versionBase(v) {
   return String(v || "").split("-")[0].split(".").slice(0, 3).join(".");
 }
-const GS_SAVE_TIMEOUT_MS = 25e3;
+const GS_SAVE_TIMEOUT_MS = 3e4;
 const GS_CALL_TIMEOUT_MS = 14e3;
 const GS_CALL_SYNC_TIMEOUT_MS = 14e3;
 const FETCH_TRANSPORT_EXTRA_MS = 3e4;
@@ -789,9 +789,17 @@ function App() {
   function attemptSongSaveFor(id) {
     const entry = songSaveTimers.current[id];
     if (!entry || !entry.pendingPatch) return;
-    if (entry.inFlight) return;
+    if (entry.inFlight) {
+      const staleMs = (GS_SAVE_TIMEOUT_MS + FETCH_TRANSPORT_EXTRA_MS) * 1.5;
+      if (entry.inFlightSince && Date.now() - entry.inFlightSince > staleMs) {
+        console.warn("Force-clearing stale inFlight for song", id);
+        songSaveTimers.current[id] = { ...entry, inFlight: false, inFlightSince: null };
+      } else {
+        return;
+      }
+    }
     const patchBeingSaved = entry.pendingPatch;
-    songSaveTimers.current[id] = { ...entry, inFlight: true };
+    songSaveTimers.current[id] = { ...entry, inFlight: true, inFlightSince: Date.now() };
     setSaveState("saving");
     saveOneSongRemote(patchBeingSaved).then(() => {
       reportSaveSuccess();
@@ -1212,6 +1220,8 @@ function App() {
       if (entry && entry.retry) {
         clearTimeout(entry.retry);
         songSaveTimers.current[id] = { ...entry, retry: null };
+        attemptSongSaveFor(id);
+      } else if (entry && entry.pendingPatch && entry.inFlight) {
         attemptSongSaveFor(id);
       }
     }
