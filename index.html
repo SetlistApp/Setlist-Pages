@@ -487,7 +487,8 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 3e3);
 }
-const APP_VERSION = "1.8-beta2";
+const APP_VERSION = "2.0-beta1";
+var _useSupabaseData = typeof window !== "undefined" && !!window.__SUPABASE_DATA__;
 var _realtimeStatus = "not configured";
 function versionBase(v) {
   return String(v || "").split("-")[0].split(".").slice(0, 3).join(".");
@@ -567,6 +568,201 @@ function gsCall(fnName, arg, timeoutMs) {
     }
   );
 }
+var _supabaseClient = null;
+function getSupabaseClient() {
+  if (_supabaseClient) return _supabaseClient;
+  var url = typeof window !== "undefined" && window.__SUPABASE_URL__;
+  var key = typeof window !== "undefined" && window.__SUPABASE_ANON_KEY__;
+  if (!url || !key || typeof window === "undefined" || typeof window.supabase === "undefined") return null;
+  _supabaseClient = window.supabase.createClient(url, key);
+  return _supabaseClient;
+}
+const SUPABASE_SONG_COLUMNS = /* @__PURE__ */ new Set([
+  "id",
+  "title",
+  "key",
+  "tempo",
+  "timeSig",
+  "recording",
+  "basicChords",
+  "chordsLyrics",
+  "alexInstrument",
+  "alexNotes",
+  "features",
+  "featureNotes",
+  "nickNotes",
+  "calebNotes",
+  "danNotes",
+  "notes",
+  "links",
+  "dotColor",
+  "arrangementRows",
+  "alexTodos",
+  "nickTodos",
+  "calebTodos",
+  "danTodos",
+  "section",
+  "tempoTimeSig"
+]);
+async function supabaseCall(label, fn) {
+  var t0 = Date.now();
+  try {
+    var result = await fn();
+    diagLog({ fn: "sb:" + label, ok: true, ms: Date.now() - t0, err: null, at: (/* @__PURE__ */ new Date()).toISOString(), retries: 0 });
+    return result;
+  } catch (err) {
+    diagLog({ fn: "sb:" + label, ok: false, ms: Date.now() - t0, err: err && err.message || String(err), at: (/* @__PURE__ */ new Date()).toISOString(), retries: 0 });
+    throw err;
+  }
+}
+async function loadAllDataFromSupabase() {
+  var client = getSupabaseClient();
+  if (!client) throw new Error("Supabase client not available");
+  var results = await Promise.all([
+    client.from("songs").select("*"),
+    client.from("setlists").select("*"),
+    client.from("config").select("*")
+  ]);
+  var songsRes = results[0], setlistsRes = results[1], configRes = results[2];
+  if (songsRes.error) throw new Error("songs: " + songsRes.error.message);
+  if (setlistsRes.error) throw new Error("setlists: " + setlistsRes.error.message);
+  if (configRes.error) throw new Error("config: " + configRes.error.message);
+  var songs = (songsRes.data || []).map(function(row) {
+    var custom = row.customFields || {};
+    var song = {};
+    for (var k in row) {
+      if (k === "customFields" || k === "created_at" || k === "updated_at") continue;
+      song[k] = row[k];
+    }
+    for (var k in custom) {
+      song[k] = custom[k];
+    }
+    return song;
+  });
+  var setlists = (setlistsRes.data || []).map(function(row) {
+    return {
+      id: row.id,
+      name: row.name || "",
+      venue: row.venue || "",
+      date: row.date || "",
+      notes: row.notes || "",
+      sets: row.sets || []
+    };
+  });
+  var configMap = {};
+  (configRes.data || []).forEach(function(row) {
+    configMap[row.key] = row.value;
+  });
+  var songOrder = { "Set 1": [], "Set 2": [], "Not In Show": [] };
+  var sectionAppearance = [];
+  songs.forEach(function(s) {
+    var sec = songOrder[s.section] ? s.section : "Not In Show";
+    if ((sec === "Set 1" || sec === "Set 2") && sectionAppearance.indexOf(sec) === -1) {
+      sectionAppearance.push(sec);
+    }
+    songOrder[sec].push(s.id);
+  });
+  var sectionOrder = sectionAppearance.slice();
+  ["Set 1", "Set 2"].forEach(function(s) {
+    if (sectionOrder.indexOf(s) === -1) sectionOrder.push(s);
+  });
+  var channelName = typeof window !== "undefined" && window.__SUPABASE_CHANNEL__ || "sync";
+  return {
+    songs,
+    setlists,
+    defaultSetlistId: configMap.defaultSetlistId || "",
+    sectionOrder,
+    songOrder,
+    sectionDefs: configMap.sectionDefs || [],
+    views: configMap.views || {},
+    version: APP_VERSION,
+    dataVersion: null,
+    // not used with Supabase — full reads are fast enough
+    isBeta: channelName.indexOf("beta") !== -1
+  };
+}
+async function saveSongPatchToSupabase(patch) {
+  var client = getSupabaseClient();
+  var id = patch.id;
+  var dbUpdate = {};
+  var customUpdate = {};
+  for (var k in patch) {
+    if (k === "id") continue;
+    if (SUPABASE_SONG_COLUMNS.has(k)) {
+      dbUpdate[k] = patch[k];
+    } else {
+      customUpdate[k] = patch[k];
+    }
+  }
+  if (Object.keys(customUpdate).length > 0) {
+    var cur = await client.from("songs").select("customFields").eq("id", id).single();
+    dbUpdate.customFields = Object.assign({}, cur.data && cur.data.customFields || {}, customUpdate);
+  }
+  dbUpdate.updated_at = (/* @__PURE__ */ new Date()).toISOString();
+  var res = await client.from("songs").upsert(
+    Object.assign({ id }, dbUpdate),
+    { onConflict: "id" }
+  );
+  if (res.error) throw new Error(res.error.message);
+}
+async function deleteOneSongFromSupabase(id) {
+  var client = getSupabaseClient();
+  var res = await client.from("songs").delete().eq("id", id);
+  if (res.error) throw new Error(res.error.message);
+}
+async function saveSongOrderToSupabase(_orderedIds) {
+}
+async function saveSetlistToSupabase(setlist) {
+  var client = getSupabaseClient();
+  var row = {
+    id: setlist.id,
+    name: setlist.name || "",
+    venue: setlist.venue || "",
+    date: setlist.date || "",
+    notes: setlist.notes || "",
+    sets: setlist.sets || [],
+    updated_at: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  var res = await client.from("setlists").upsert(row, { onConflict: "id" });
+  if (res.error) throw new Error(res.error.message);
+}
+async function saveSetlistSetsToSupabase(id, sets) {
+  var client = getSupabaseClient();
+  var res = await client.from("setlists").update({
+    sets,
+    updated_at: (/* @__PURE__ */ new Date()).toISOString()
+  }).eq("id", id);
+  if (res.error) throw new Error(res.error.message);
+}
+async function deleteSetlistFromSupabase(id) {
+  var client = getSupabaseClient();
+  var res = await client.from("setlists").delete().eq("id", id);
+  if (res.error) throw new Error(res.error.message);
+}
+async function setDefaultSetlistToSupabase(id) {
+  var client = getSupabaseClient();
+  var res = await client.from("config").upsert(
+    { key: "defaultSetlistId", value: id },
+    { onConflict: "key" }
+  );
+  if (res.error) throw new Error(res.error.message);
+}
+async function saveSectionDefsToSupabase(defs) {
+  var client = getSupabaseClient();
+  var res = await client.from("config").upsert(
+    { key: "sectionDefs", value: defs },
+    { onConflict: "key" }
+  );
+  if (res.error) throw new Error(res.error.message);
+}
+async function saveViewsToSupabase(views) {
+  var client = getSupabaseClient();
+  var res = await client.from("config").upsert(
+    { key: "views", value: views },
+    { onConflict: "key" }
+  );
+  if (res.error) throw new Error(res.error.message);
+}
 function loadPersonalPrefs() {
   let activeViewId = null;
   let activeSetlistId = null;
@@ -603,8 +799,13 @@ function savePersonalArrColPct(n) {
 }
 async function loadAllData(fastTimeout, sinceVersion) {
   try {
-    const arg = sinceVersion != null ? { sinceVersion } : void 0;
-    const data = await gsCall("getAllData", arg, fastTimeout ? GS_CALL_SYNC_TIMEOUT_MS : void 0);
+    var data;
+    if (_useSupabaseData && getSupabaseClient()) {
+      data = await supabaseCall("getAllData", loadAllDataFromSupabase);
+    } else {
+      const arg = sinceVersion != null ? { sinceVersion } : void 0;
+      data = await gsCall("getAllData", arg, fastTimeout ? GS_CALL_SYNC_TIMEOUT_MS : void 0);
+    }
     if (data && data.noChange) {
       return { noChange: true, dataVersion: data.dataVersion, version: data.version, offline: false };
     }
@@ -632,30 +833,57 @@ async function loadAllData(fastTimeout, sinceVersion) {
   }
 }
 function saveOneSongRemote(patch) {
+  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("saveSongPatch", function() {
+    return saveSongPatchToSupabase(patch);
+  });
   return gsCall("saveSongPatch", patch, GS_SAVE_TIMEOUT_MS);
 }
 function deleteOneSongRemote(id) {
+  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("deleteOneSong", function() {
+    return deleteOneSongFromSupabase(id);
+  });
   return gsCall("deleteOneSong", id, GS_SAVE_TIMEOUT_MS);
 }
 function saveSongOrderRemote(orderedIds) {
+  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("saveSongOrder", function() {
+    return saveSongOrderToSupabase(orderedIds);
+  });
   return gsCall("saveSongOrder", orderedIds, GS_SAVE_TIMEOUT_MS);
 }
 function saveSetlistRemote(setlist) {
+  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("saveSetlist", function() {
+    return saveSetlistToSupabase(setlist);
+  });
   return gsCall("saveSetlist", setlist, GS_SAVE_TIMEOUT_MS);
 }
 function saveSetlistSetsRemote(id, sets) {
+  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("saveSetlistSets", function() {
+    return saveSetlistSetsToSupabase(id, sets);
+  });
   return gsCall("saveSetlistSets", { id, sets }, GS_SAVE_TIMEOUT_MS);
 }
 function deleteSetlistRemote(id) {
+  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("deleteSetlist", function() {
+    return deleteSetlistFromSupabase(id);
+  });
   return gsCall("deleteSetlist", id, GS_SAVE_TIMEOUT_MS);
 }
 function setDefaultSetlistRemote(id) {
+  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("setDefaultSetlist", function() {
+    return setDefaultSetlistToSupabase(id);
+  });
   return gsCall("setDefaultSetlist", id);
 }
 function saveSectionDefsRemote(defs) {
+  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("saveSectionDefs", function() {
+    return saveSectionDefsToSupabase(defs);
+  });
   return gsCall("saveSectionDefs", defs, GS_SAVE_TIMEOUT_MS);
 }
 function saveViewsRemote(views) {
+  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("saveViews", function() {
+    return saveViewsToSupabase(views);
+  });
   return gsCall("saveViews", views, GS_SAVE_TIMEOUT_MS);
 }
 function scanDriveLinksRemote() {
@@ -1300,7 +1528,11 @@ function App() {
     }
     _realtimeStatus = "connecting\u2026";
     try {
-      var client = window.supabase.createClient(url, key);
+      var client = getSupabaseClient();
+      if (!client) {
+        _realtimeStatus = "client init failed";
+        return;
+      }
       var ch = client.channel(channelName);
       var nudgeTimer = null;
       ch.on("broadcast", { event: "data_changed" }, function() {
@@ -2070,7 +2302,8 @@ function StatusDot({ saveState, syncStatus, lastError }) {
 }
 function formatDiagLog() {
   const log = getDiagLog();
-  const header = "Realtime: " + _realtimeStatus + "\n\n";
+  const dataSource = _useSupabaseData ? "Supabase" : "Apps Script";
+  const header = "Data: " + dataSource + " | Realtime: " + _realtimeStatus + "\n\n";
   if (!log.length) return header + "No recent network calls logged.";
   return header + "Recent network calls (newest first):\n\n" + log.slice().reverse().map((e, i) => {
     const time = e.at ? e.at.replace("T", " ").replace(/\.\d+Z$/, "") : "?";
