@@ -956,6 +956,7 @@ function App() {
         entry.retry = setTimeout(attempt, nextRetryDelay(attempts));
       });
     }
+    entry.attemptFn = attempt;
     entry.debounce = setTimeout(attempt, 350);
   }
   function scheduleSetlistSave(setlist) {
@@ -1142,17 +1143,19 @@ function App() {
     return false;
   }
   async function refreshAllData(isManual) {
-    if (refreshing) return;
+    if (refreshingRef.current) return;
     if (hasPendingWork()) {
       setSyncStatus("paused");
       return;
     }
+    refreshingRef.current = true;
     setRefreshing(true);
     if (isManual) setManualRefreshing(true);
     try {
       const data = await loadAllData(true);
       if (hasPendingWork()) {
         setSyncStatus("paused");
+        refreshingRef.current = false;
         setRefreshing(false);
         if (isManual) setManualRefreshing(false);
         return;
@@ -1204,6 +1207,7 @@ function App() {
       console.error("refresh failed", err);
       reportSyncFailure();
     }
+    refreshingRef.current = false;
     setRefreshing(false);
     if (isManual) setManualRefreshing(false);
   }
@@ -1254,12 +1258,39 @@ function App() {
   function retryAllPendingSaves() {
     for (const id in songSaveTimers.current) {
       const entry = songSaveTimers.current[id];
-      if (entry && entry.retry) {
+      if (!entry) continue;
+      if (entry.retry) {
         clearTimeout(entry.retry);
         songSaveTimers.current[id] = { ...entry, retry: null };
         attemptSongSaveFor(id);
-      } else if (entry && entry.pendingPatch && entry.inFlight) {
+      } else if (entry.pendingPatch && entry.inFlight) {
         attemptSongSaveFor(id);
+      } else if (entry.pendingPatch && !entry.inFlight) {
+        if (entry.debounce) clearTimeout(entry.debounce);
+        songSaveTimers.current[id] = { ...entry, debounce: null };
+        attemptSongSaveFor(id);
+      }
+    }
+    if (orderRetryTimer.current) {
+      clearTimeout(orderRetryTimer.current);
+      orderRetryTimer.current = null;
+      if (orderSavePending.current && latestOrderRef.current) {
+        setSaveState("saving");
+        saveSongOrderRemote(latestOrderRef.current).then(() => {
+          reportSaveSuccess();
+          orderSavePending.current = false;
+        }).catch((err) => {
+          reportSaveFailure(err);
+          orderRetryTimer.current = setTimeout(() => retryAllPendingSaves(), nextRetryDelay(1));
+        });
+      }
+    }
+    for (const key in setlistSaveTimers.current) {
+      const entry = setlistSaveTimers.current[key];
+      if (entry && entry.retry && entry.attemptFn) {
+        clearTimeout(entry.retry);
+        entry.retry = null;
+        entry.attemptFn();
       }
     }
     if (defsRetryTimer.current) {
@@ -1273,6 +1304,30 @@ function App() {
       attemptViewsSave();
     }
   }
+  useEffect(() => {
+    function handleBeforeUnload(e) {
+      if (hasPendingWork()) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    }
+    function handlePageHide() {
+      for (const id in songSaveTimers.current) {
+        const entry = songSaveTimers.current[id];
+        if (entry && entry.pendingPatch && entry.debounce) {
+          clearTimeout(entry.debounce);
+          entry.debounce = null;
+          attemptSongSaveFor(id);
+        }
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handlePageHide);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, []);
   useEffect(() => {
     if (!loaded) return;
     function handleVisible() {
