@@ -35,12 +35,11 @@
     input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
   </style>
   <script>
-    // iOS Safari shows a persistent focus ring on tapped buttons that resists
-    // CSS outline/appearance overrides. Blur the button after tap to remove it.
-    document.addEventListener("pointerup", function(e) {
-      var btn = e.target.closest && e.target.closest("button");
-      if (btn) setTimeout(function() { btn.blur(); }, 0);
-    }, { passive: true });
+    // Mobile-only PWA: buttons don't need keyboard focus.
+    // Prevents iOS Safari from rendering persistent focus rings on tap.
+    document.addEventListener('focusin', function(e) {
+      if (e.target.tagName === 'BUTTON') e.target.blur();
+    }, true);
   </script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -520,7 +519,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 2e3);
 }
-const APP_VERSION = "2.0.3-beta10";
+const APP_VERSION = "2.0.3-beta11";
 var _realtimeStatus = "not configured";
 function readRecoverablePatches(raw, now) {
   try {
@@ -4797,9 +4796,7 @@ function FontLoad() {
       @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
       * { box-sizing: border-box; }
       input, textarea, button, select { font-family: inherit; }
-      button { -webkit-appearance: none; appearance: none; }
       textarea:focus, input:focus, select:focus { outline: none; border-color: var(--gold) !important; }
-      button:focus, button:focus-visible { outline: 0 !important; }
     `);
 }
 const spinCss = `
