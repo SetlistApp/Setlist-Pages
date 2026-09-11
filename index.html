@@ -512,7 +512,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 2e3);
 }
-const APP_VERSION = "2.0.3-beta1";
+const APP_VERSION = "2.0.3-beta2";
 var _useSupabaseData = typeof window !== "undefined" && !!window.__SUPABASE_DATA__;
 var _realtimeStatus = "not configured";
 function readRecoverablePatches(raw, now) {
@@ -2382,8 +2382,7 @@ function Header({ isBeta, saveState, syncStatus, onRefresh, refreshing, manualRe
 }
 function SyncIndicator({ status, compact }) {
   const base = compact ? styles.saveTagCompact : styles.saveTag;
-  if (status === "syncing") return /* @__PURE__ */ React.createElement("span", { style: { ...base, color: "var(--yellow)" } }, "syncing\u2026");
-  if (status === "paused") return /* @__PURE__ */ React.createElement("span", { style: { ...base, color: "var(--yellow)" } }, "Paused");
+  if (status === "syncing" || status === "paused") return /* @__PURE__ */ React.createElement("span", { style: { ...base, color: "var(--yellow)" } }, "syncing\u2026");
   if (status === "error") return /* @__PURE__ */ React.createElement("span", { style: { ...base, color: "var(--needs)" } }, "sync error");
   if (status === "synced")
     return /* @__PURE__ */ React.createElement("span", { style: { ...base, color: "var(--ready)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(Icon, { name: "refresh", size: compact ? 11 : 13 }), " synced");
@@ -2413,7 +2412,7 @@ function StatusDot({ saveState, syncStatus, lastError }) {
     pulse = false;
   } else if (syncStatus === "paused") {
     color = "var(--yellow)";
-    label = "Paused";
+    label = "Syncing\u2026";
     pulse = false;
   } else if (syncStatus === "synced") {
     color = "var(--ready)";
