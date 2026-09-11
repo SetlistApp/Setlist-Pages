@@ -505,15 +505,13 @@ const RETRY_DELAY_MS = 3e3;
 const RETRY_MAX_DELAY_MS = 3e4;
 const AUTO_REFRESH_INTERVAL_MS = 2e4;
 const EDIT_IDLE_SAVE_MS = 1e3;
-const POST_SAVE_SYNC_COOLDOWN_MS = _useSupabaseData ? 500 : 3e3;
-const CONFIRMED_PATCH_TTL_MS = _useSupabaseData ? 0 : 1e4;
+const POST_SAVE_SYNC_COOLDOWN_MS = 500;
 function nextRetryDelay(attempt) {
   const n = Math.max(0, (attempt || 1) - 1);
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 2e3);
 }
-const APP_VERSION = "2.0.3-beta2";
-var _useSupabaseData = typeof window !== "undefined" && !!window.__SUPABASE_DATA__;
+const APP_VERSION = "2.0.3-beta3";
 var _realtimeStatus = "not configured";
 function readRecoverablePatches(raw, now) {
   try {
@@ -528,10 +526,8 @@ function readRecoverablePatches(raw, now) {
 function versionBase(v) {
   return String(v || "").split("-")[0].split(".").slice(0, 3).join(".");
 }
-const GS_SAVE_TIMEOUT_MS = 3e4;
 const GS_CALL_TIMEOUT_MS = 14e3;
-const GS_CALL_SYNC_TIMEOUT_MS = 14e3;
-const FETCH_TRANSPORT_EXTRA_MS = 3e4;
+const GS_TRANSPORT_EXTRA_MS = 3e4;
 const GAS_DOPOST_URL = "https://script.google.com/macros/s/AKfycbw-JuS02Bqwm1rav03CtJ2TVdx1QVHDUS6MUjPBlUO_mOog8B-tQOHqsLAgXxejHsB8gg/exec";
 const GSCALL_MAX_RETRIES = 2;
 const GSCALL_RETRY_DELAY_MS = 2e3;
@@ -545,7 +541,7 @@ function getDiagLog() {
   return _diagLog;
 }
 function gsCall(fnName, arg, timeoutMs) {
-  const perAttemptTimeout = (timeoutMs || GS_CALL_TIMEOUT_MS) + FETCH_TRANSPORT_EXTRA_MS;
+  const perAttemptTimeout = (timeoutMs || GS_CALL_TIMEOUT_MS) + GS_TRANSPORT_EXTRA_MS;
   const dopostUrl = typeof window.__DOPOST_URL__ === "string" && window.__DOPOST_URL__ ? window.__DOPOST_URL__ : GAS_DOPOST_URL;
   const bodyStr = JSON.stringify({ fn: fnName, arg });
   function attempt(retriesLeft) {
@@ -855,18 +851,9 @@ function savePersonalArrColPct(n) {
   } catch (e) {
   }
 }
-async function loadAllData(fastTimeout, sinceVersion) {
+async function loadAllData() {
   try {
-    var data;
-    if (_useSupabaseData && getSupabaseClient()) {
-      data = await supabaseCall("getAllData", loadAllDataFromSupabase);
-    } else {
-      const arg = sinceVersion != null ? { sinceVersion } : void 0;
-      data = await gsCall("getAllData", arg, fastTimeout ? GS_CALL_SYNC_TIMEOUT_MS : void 0);
-    }
-    if (data && data.noChange) {
-      return { noChange: true, dataVersion: data.dataVersion, version: data.version, offline: false };
-    }
+    var data = await supabaseCall("getAllData", loadAllDataFromSupabase);
     if (!data || !Array.isArray(data.songs)) {
       throw new Error("getAllData returned an unusable payload");
     }
@@ -891,58 +878,49 @@ async function loadAllData(fastTimeout, sinceVersion) {
   }
 }
 function saveOneSongRemote(patch) {
-  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("saveSongPatch", function() {
+  return supabaseCall("saveSongPatch", function() {
     return saveSongPatchToSupabase(patch);
   });
-  return gsCall("saveSongPatch", patch, GS_SAVE_TIMEOUT_MS);
 }
 function deleteOneSongRemote(id) {
-  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("deleteOneSong", function() {
+  return supabaseCall("deleteOneSong", function() {
     return deleteOneSongFromSupabase(id);
   });
-  return gsCall("deleteOneSong", id, GS_SAVE_TIMEOUT_MS);
 }
 function saveSongOrderRemote(orderedIds) {
-  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("saveSongOrder", function() {
+  return supabaseCall("saveSongOrder", function() {
     return saveSongOrderToSupabase(orderedIds);
   });
-  return gsCall("saveSongOrder", orderedIds, GS_SAVE_TIMEOUT_MS);
 }
 function saveSetlistRemote(setlist) {
-  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("saveSetlist", function() {
+  return supabaseCall("saveSetlist", function() {
     return saveSetlistToSupabase(setlist);
   });
-  return gsCall("saveSetlist", setlist, GS_SAVE_TIMEOUT_MS);
 }
 function saveSetlistSetsRemote(id, sets) {
-  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("saveSetlistSets", function() {
+  return supabaseCall("saveSetlistSets", function() {
     return saveSetlistSetsToSupabase(id, sets);
   });
-  return gsCall("saveSetlistSets", { id, sets }, GS_SAVE_TIMEOUT_MS);
 }
 function deleteSetlistRemote(id) {
-  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("deleteSetlist", function() {
+  return supabaseCall("deleteSetlist", function() {
     return deleteSetlistFromSupabase(id);
   });
-  return gsCall("deleteSetlist", id, GS_SAVE_TIMEOUT_MS);
 }
 function setDefaultSetlistRemote(id) {
-  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("setDefaultSetlist", function() {
+  return supabaseCall("setDefaultSetlist", function() {
     return setDefaultSetlistToSupabase(id);
   });
-  return gsCall("setDefaultSetlist", id);
 }
 function saveSectionDefsRemote(defs) {
-  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("saveSectionDefs", function() {
+  return supabaseCall("saveSectionDefs", function() {
     return saveSectionDefsToSupabase(defs);
   });
-  return gsCall("saveSectionDefs", defs, GS_SAVE_TIMEOUT_MS);
 }
 function saveViewsRemote(views) {
-  if (_useSupabaseData && getSupabaseClient()) return supabaseCall("saveViews", function() {
+  return supabaseCall("saveViews", function() {
     return saveViewsToSupabase(views);
   });
-  return gsCall("saveViews", views, GS_SAVE_TIMEOUT_MS);
 }
 function scanDriveLinksRemote() {
   return gsCall("scanDriveLinks", void 0, 12e4);
@@ -966,7 +944,7 @@ function uploadRecordingRemote(payload) {
   return gsCall("uploadRecording", payload, UPLOAD_TIMEOUT_MS);
 }
 function deleteRecordingFileRemote(payload) {
-  return gsCall("deleteRecordingFile", payload, GS_SAVE_TIMEOUT_MS);
+  return gsCall("deleteRecordingFile", payload, 6e4);
 }
 function driveFileIdFromUrl(url) {
   if (!url) return "";
@@ -1123,13 +1101,12 @@ function App() {
   const viewsRetryTimer = useRef(null);
   const viewsSavePending = useRef(false);
   const viewsRetryCount = useRef(0);
-  const recentlyConfirmedPatches = useRef({});
   const songSaveTimers = useRef({});
   function attemptSongSaveFor(id) {
     const entry = songSaveTimers.current[id];
     if (!entry || !entry.pendingPatch) return;
     if (entry.inFlight) {
-      const staleMs = _useSupabaseData ? SUPABASE_CALL_TIMEOUT_MS * 3 : (GS_SAVE_TIMEOUT_MS + FETCH_TRANSPORT_EXTRA_MS) * 1.5;
+      const staleMs = SUPABASE_CALL_TIMEOUT_MS * 3;
       if (entry.inFlightSince && Date.now() - entry.inFlightSince > staleMs) {
         console.warn("Force-clearing stale inFlight for song", id);
         songSaveTimers.current[id] = { ...entry, inFlight: false, inFlightSince: null };
@@ -1146,9 +1123,6 @@ function App() {
       if (!current) return;
       if (current.pendingPatch === patchBeingSaved) {
         songSaveTimers.current[id] = { ...current, pendingPatch: null, retry: null, retryCount: 0, inFlight: false };
-        if (!_useSupabaseData) {
-          recentlyConfirmedPatches.current[id] = { patch: patchBeingSaved, at: Date.now() };
-        }
       } else {
         songSaveTimers.current[id] = { ...current, retryCount: 0, inFlight: false };
         attemptSongSaveFor(id);
@@ -1371,15 +1345,8 @@ function App() {
           } catch (e) {
           }
         }
-        const initNow = Date.now();
         const mergedSongs = data.songs.map((s) => {
           let m = s;
-          if (!_useSupabaseData) {
-            const confirmed = recentlyConfirmedPatches.current[s.id];
-            if (confirmed && initNow - confirmed.at < CONFIRMED_PATCH_TTL_MS) {
-              m = { ...m, ...confirmed.patch };
-            }
-          }
           if (recovered && recovered[s.id]) m = { ...m, ...recovered[s.id] };
           const t = songSaveTimers.current[s.id];
           if (t && t.pendingPatch) m = { ...m, ...t.pendingPatch };
@@ -1504,7 +1471,7 @@ function App() {
     setRefreshing(true);
     if (isManual) setManualRefreshing(true);
     try {
-      const data = await loadAllData(true, isManual ? null : dataVersionRef.current);
+      const data = await loadAllData();
       if (data.noChange) {
         if (data.version && versionBase(data.version) !== versionBase(APP_VERSION)) setNewVersionAvailable(true);
         if (data.dataVersion != null) dataVersionRef.current = data.dataVersion;
@@ -1524,17 +1491,8 @@ function App() {
         if (isManual) setManualRefreshing(false);
         return;
       }
-      const now = Date.now();
       const songsWithPendingApplied = data.songs.map((s) => {
         let merged = s;
-        if (!_useSupabaseData) {
-          const confirmed = recentlyConfirmedPatches.current[s.id];
-          if (confirmed && now - confirmed.at < CONFIRMED_PATCH_TTL_MS) {
-            merged = { ...merged, ...confirmed.patch };
-          } else if (confirmed) {
-            delete recentlyConfirmedPatches.current[s.id];
-          }
-        }
         const t = songSaveTimers.current[s.id];
         if (t && t.pendingPatch) merged = { ...merged, ...t.pendingPatch };
         return merged;
@@ -2107,7 +2065,7 @@ function App() {
             applied: scanResult.applied || 0,
             alreadyLinked: scanResult.alreadyLinked || 0
           });
-          if (_useSupabaseData && scanResult.allSongRecordings && scanResult.allSongRecordings.length > 0) {
+          if (scanResult.allSongRecordings && scanResult.allSongRecordings.length > 0) {
             const client = getSupabaseClient();
             for (const entry of scanResult.allSongRecordings) {
               try {
@@ -2443,8 +2401,7 @@ function StatusDot({ saveState, syncStatus, lastError }) {
 }
 function formatDiagLog() {
   const log = getDiagLog();
-  const dataSource = _useSupabaseData ? "Supabase" : "Apps Script";
-  const header = "Data: " + dataSource + " | Realtime: " + _realtimeStatus + "\n\n";
+  const header = "Data: Supabase | Realtime: " + _realtimeStatus + "\n\n";
   if (!log.length) return header + "No recent network calls logged.";
   return header + "Recent network calls (newest first):\n\n" + log.slice().reverse().map((e, i) => {
     const time = e.at ? e.at.replace("T", " ").replace(/\.\d+Z$/, "") : "?";
