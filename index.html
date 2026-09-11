@@ -519,7 +519,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 2e3);
 }
-const APP_VERSION = "2.0.3-beta1";
+const APP_VERSION = "2.0.3-beta2";
 var _realtimeStatus = "not configured";
 function readRecoverablePatches(raw, now) {
   try {
@@ -953,6 +953,9 @@ function uploadRecordingRemote(payload) {
 }
 function deleteRecordingFileRemote(payload) {
   return gsCall("deleteRecordingFile", payload, 6e4);
+}
+function renameDriveRecordingRemote(payload) {
+  return gsCall("renameDriveRecording", payload);
 }
 function driveFileIdFromUrl(url) {
   if (!url) return "";
@@ -2141,6 +2144,7 @@ function App() {
       unmatched: driveReview.unmatched,
       appliedCount: driveReview.applied || 0,
       alreadyLinkedCount: driveReview.alreadyLinked || 0,
+      staleRemovedCount: driveReview.staleRemoved || 0,
       onResolveItem: (filename) => setDriveReview((prev) => ({
         ...prev,
         duplicates: prev.duplicates.filter((d) => d.filename !== filename),
@@ -2161,7 +2165,8 @@ function App() {
             ambiguous: scanResult.ambiguous || [],
             unmatched: scanResult.unmatched || [],
             applied: scanResult.applied || 0,
-            alreadyLinked: scanResult.alreadyLinked || 0
+            alreadyLinked: scanResult.alreadyLinked || 0,
+            staleRemoved: scanResult.staleRemoved || 0
           });
           if (scanResult.allSongRecordings && scanResult.allSongRecordings.length > 0) {
             const client = getSupabaseClient();
@@ -2170,21 +2175,31 @@ function App() {
                 const cur = await client.from("songs").select("recording").eq("id", entry.id).single();
                 const supaRecs = cur.data && cur.data.recording || [];
                 const sheetRecs = entry.recording || [];
+                const sheetFileIds = /* @__PURE__ */ new Set();
+                for (const r of sheetRecs) {
+                  const fid = driveFileIdFromUrl(r.url);
+                  if (fid) sheetFileIds.add(fid);
+                }
+                let merged = supaRecs.filter((r) => {
+                  const fid = driveFileIdFromUrl(r.url);
+                  if (!fid) return true;
+                  return sheetFileIds.has(fid);
+                });
                 const existingIds = /* @__PURE__ */ new Set();
-                for (const r of supaRecs) {
+                for (const r of merged) {
                   const fid = driveFileIdFromUrl(r.url);
                   if (fid) existingIds.add(fid);
                 }
-                let merged = [...supaRecs];
                 let added = 0;
                 for (const r of sheetRecs) {
                   const fid = driveFileIdFromUrl(r.url);
                   if (fid && existingIds.has(fid)) continue;
-                  if (!fid && supaRecs.some((s) => s.url === r.url)) continue;
+                  if (!fid && merged.some((s) => s.url === r.url)) continue;
                   merged.push(r);
                   added++;
                 }
-                if (added > 0) {
+                const removed = supaRecs.length - (merged.length - added);
+                if (added > 0 || removed > 0) {
                   await supabaseCall(
                     "driveScanSync",
                     () => saveSongPatchToSupabase({ id: entry.id, recording: merged })
@@ -3199,6 +3214,7 @@ function LinksListEditor({ value, onChange, onFieldBlur, songId, songTitle, hide
     if (el) rowRefs.current[id] = el;
     else delete rowRefs.current[id];
   };
+  const originalNameRef = useRef({});
   function updateLink(id, patch) {
     onChange(links.map((l) => l.id === id ? { ...l, ...patch } : l));
   }
@@ -3207,6 +3223,20 @@ function LinksListEditor({ value, onChange, onFieldBlur, songId, songTitle, hide
   }
   function addLink() {
     onChange([...links, { id: uid(), name: "New link", url: "" }]);
+  }
+  async function handleRecordingNameBlur(link) {
+    if (onFieldBlur) onFieldBlur();
+    const origName = originalNameRef.current[link.id];
+    delete originalNameRef.current[link.id];
+    if (!origName || origName === link.name.trim()) return;
+    const fid = driveFileIdFromUrl(link.url);
+    if (!fid || !songTitle) return;
+    try {
+      await renameDriveRecordingRemote({ fileId: fid, songTitle, newTag: link.name.trim() });
+    } catch (e) {
+      const msg = e && e.message || "Rename failed";
+      alert("Drive file rename warning:\n\n" + msg + "\n\nThe tag was updated in the app.");
+    }
   }
   function handleMove(e) {
     const id = draggingIdRef.current;
@@ -3238,7 +3268,19 @@ function LinksListEditor({ value, onChange, onFieldBlur, songId, songTitle, hide
   return /* @__PURE__ */ React.createElement("div", { style: styles.linksEditList }, localOrder.map((id) => {
     const l = byId[id];
     if (!l) return null;
-    return /* @__PURE__ */ React.createElement("div", { key: id, ref: setRowRef(id), style: { ...styles.linksEditRow, ...activeDragId === id ? styles.dragging : {} } }, /* @__PURE__ */ React.createElement("div", { style: styles.linksEditRowTop }, /* @__PURE__ */ React.createElement("span", { onPointerDown: startDrag(id), style: styles.linksDragHandle, "data-swipe-ignore": "true" }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 14, color: "var(--dim)" })), /* @__PURE__ */ React.createElement("input", { value: l.name, onChange: (e) => updateLink(id, { name: e.target.value }), onBlur: onFieldBlur, placeholder: "Name", style: styles.linksNameInput }), /* @__PURE__ */ React.createElement(
+    return /* @__PURE__ */ React.createElement("div", { key: id, ref: setRowRef(id), style: { ...styles.linksEditRow, ...activeDragId === id ? styles.dragging : {} } }, /* @__PURE__ */ React.createElement("div", { style: styles.linksEditRowTop }, /* @__PURE__ */ React.createElement("span", { onPointerDown: startDrag(id), style: styles.linksDragHandle, "data-swipe-ignore": "true" }, /* @__PURE__ */ React.createElement(Icon, { name: "grip", size: 14, color: "var(--dim)" })), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        value: l.name,
+        onFocus: () => {
+          if (songId && !originalNameRef.current[id]) originalNameRef.current[id] = l.name.trim();
+        },
+        onChange: (e) => updateLink(id, { name: e.target.value }),
+        onBlur: () => songId ? handleRecordingNameBlur(l) : onFieldBlur && onFieldBlur(),
+        placeholder: "Name",
+        style: styles.linksNameInput
+      }
+    ), /* @__PURE__ */ React.createElement(
       "button",
       {
         onClick: () => {
@@ -3256,19 +3298,7 @@ function LinksListEditor({ value, onChange, onFieldBlur, songId, songTitle, hide
         "data-delete-armed": armedDeleteId === id || delMenuId === id ? "true" : void 0
       },
       /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 14, color: armedDeleteId === id || delMenuId === id ? "var(--needs)" : "var(--dim)" })
-    )), /* @__PURE__ */ React.createElement("input", { value: l.url, onChange: (e) => updateLink(id, { url: e.target.value }), onBlur: onFieldBlur, placeholder: "https://...", style: styles.linksUrlInput }), armedDeleteId === id && /* @__PURE__ */ React.createElement("div", { style: styles.deleteArmedHint }, "Tap the \xD7 again to delete, or tap elsewhere to cancel"), delMenuId === id && /* @__PURE__ */ React.createElement("div", { style: styles.linkDelMenu, "data-delete-armed": "true" }, /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        onClick: () => {
-          deleteLink(id);
-          closeDelMenu();
-        },
-        style: styles.linkDelMenuBtn,
-        disabled: delBusyId === id
-      },
-      "Remove from song ",
-      /* @__PURE__ */ React.createElement("span", { style: styles.linkDelMenuSub }, "keeps the file in Drive")
-    ), /* @__PURE__ */ React.createElement(
+    )), !songId && /* @__PURE__ */ React.createElement("input", { value: l.url, onChange: (e) => updateLink(id, { url: e.target.value }), onBlur: onFieldBlur, placeholder: "https://...", style: styles.linksUrlInput }), armedDeleteId === id && /* @__PURE__ */ React.createElement("div", { style: styles.deleteArmedHint }, "Tap the \xD7 again to delete, or tap elsewhere to cancel"), delMenuId === id && /* @__PURE__ */ React.createElement("div", { style: styles.linkDelMenu, "data-delete-armed": "true" }, /* @__PURE__ */ React.createElement(
       "button",
       {
         onClick: () => delConfirmId === id ? runDeleteFile(l) : setDelConfirmId(id),
@@ -3958,7 +3988,7 @@ function ManualLinkModal({ file, songs, onLink, onClose }) {
     "Link"
   )))));
 }
-function DriveReviewScreen({ songs, onUpdateSong, duplicates, ambiguous, unmatched, appliedCount, alreadyLinkedCount, onResolveItem, onClose, onOpenFolderSettings, onScan }) {
+function DriveReviewScreen({ songs, onUpdateSong, duplicates, ambiguous, unmatched, appliedCount, alreadyLinkedCount, staleRemovedCount, onResolveItem, onClose, onOpenFolderSettings, onScan }) {
   const [renamingFile, setRenamingFile] = useState(null);
   const [renameValue, setRenameValue] = useState("");
   const [showUnmatched, setShowUnmatched] = useState(false);
@@ -4036,7 +4066,7 @@ function DriveReviewScreen({ songs, onUpdateSong, duplicates, ambiguous, unmatch
       },
       /* @__PURE__ */ React.createElement(Icon, { name: "refresh", size: 16, color: "var(--bg)", className: scanning ? "spin" : "" }),
       scanning ? "Scanning\u2026" : "Scan Drive Folder"
-    ), appliedCount > 0 || alreadyLinkedCount > 0 || needsAttention > 0 ? /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewSummary }, appliedCount, " clean match", appliedCount === 1 ? "" : "es", " applied.", " ", alreadyLinkedCount > 0 ? `${alreadyLinkedCount} already linked. ` : "", needsAttention > 0 ? `${needsAttention} need your attention.` : "") : /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewSummary }, "Tap the button above to scan your Drive folder for new recordings."), duplicates.map((dup) => /* @__PURE__ */ React.createElement("div", { key: dup.filename, style: styles.driveReviewCard }, /* @__PURE__ */ React.createElement(Icon, { name: "alertTriangle", size: 14, color: "var(--needs)" }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewFilename }, dup.filename), /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewMatch }, dup.songTitle, " ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--dim)" } }, "\u2192"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--gold)" } }, dup.tag)), /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewWarning }, "Already has a link named ", dup.tag), renamingFile === dup.filename ? /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewRenameForm }, /* @__PURE__ */ React.createElement(
+    ), appliedCount > 0 || alreadyLinkedCount > 0 || needsAttention > 0 ? /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewSummary }, appliedCount, " clean match", appliedCount === 1 ? "" : "es", " applied.", " ", alreadyLinkedCount > 0 ? `${alreadyLinkedCount} already linked. ` : "", staleRemovedCount > 0 ? `${staleRemovedCount} stale link${staleRemovedCount === 1 ? "" : "s"} removed. ` : "", needsAttention > 0 ? `${needsAttention} need your attention.` : "") : /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewSummary }, "Tap the button above to scan your Drive folder for new recordings."), duplicates.map((dup) => /* @__PURE__ */ React.createElement("div", { key: dup.filename, style: styles.driveReviewCard }, /* @__PURE__ */ React.createElement(Icon, { name: "alertTriangle", size: 14, color: "var(--needs)" }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewFilename }, dup.filename), /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewMatch }, dup.songTitle, " ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--dim)" } }, "\u2192"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--gold)" } }, dup.tag)), /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewWarning }, "Already has a link named ", dup.tag), renamingFile === dup.filename ? /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewRenameForm }, /* @__PURE__ */ React.createElement(
       "input",
       {
         autoFocus: true,
@@ -4692,7 +4722,8 @@ function SongDetail({
             onChange: (next) => onChange({ [def.id]: next }),
             onFieldBlur,
             songId: def.id === "recording" ? song.id : void 0,
-            songTitle: def.id === "recording" ? song.title : void 0
+            songTitle: def.id === "recording" ? song.title : void 0,
+            hideAddLink: def.id === "recording"
           }
         )) : /* @__PURE__ */ React.createElement(
           "div",
