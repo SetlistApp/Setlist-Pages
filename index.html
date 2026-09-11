@@ -3167,7 +3167,8 @@ function LinksListEditor({ value, onChange, onFieldBlur, songId, songTitle, hide
     setDelBusyId(link.id);
     setDelErr("");
     try {
-      const res = await deleteRecordingFileRemote({ songId, linkId: link.id });
+      const fid = driveFileIdFromUrl(link.url);
+      const res = await deleteRecordingFileRemote({ songId, linkId: link.id, fileId: fid });
       if (!res || !res.ok) {
         setDelErr(deleteFileReasonText(res && res.reason));
         setDelBusyId(null);
