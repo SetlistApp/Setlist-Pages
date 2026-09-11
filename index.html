@@ -512,7 +512,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 2e3);
 }
-const APP_VERSION = "2.0.3-beta6";
+const APP_VERSION = "2.0.3-beta7";
 var _realtimeStatus = "not configured";
 function readRecoverablePatches(raw, now) {
   try {
@@ -4793,7 +4793,8 @@ function FontLoad() {
       @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
       * { box-sizing: border-box; }
       input, textarea, button, select { font-family: inherit; }
-      textarea:focus, input:focus, select:focus, button:focus { outline: none; border-color: var(--gold) !important; }
+      textarea:focus, input:focus, select:focus { outline: none; border-color: var(--gold) !important; }
+      button:focus { outline: none; }
     `);
 }
 const spinCss = `
