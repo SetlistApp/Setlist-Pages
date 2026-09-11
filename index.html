@@ -519,7 +519,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 2e3);
 }
-const APP_VERSION = "2.0.3";
+const APP_VERSION = "2.0.3-beta1";
 var _realtimeStatus = "not configured";
 function readRecoverablePatches(raw, now) {
   try {
@@ -2141,6 +2141,12 @@ function App() {
       unmatched: driveReview.unmatched,
       appliedCount: driveReview.applied || 0,
       alreadyLinkedCount: driveReview.alreadyLinked || 0,
+      onResolveItem: (filename) => setDriveReview((prev) => ({
+        ...prev,
+        duplicates: prev.duplicates.filter((d) => d.filename !== filename),
+        ambiguous: prev.ambiguous.filter((a) => a.filename !== filename),
+        unmatched: prev.unmatched.filter((u) => u.filename !== filename)
+      })),
       onClose: () => setShowDriveReviewScreen(false),
       onOpenFolderSettings: () => setShowDriveFolderSettings(true),
       onScan: async () => {
@@ -3952,8 +3958,7 @@ function ManualLinkModal({ file, songs, onLink, onClose }) {
     "Link"
   )))));
 }
-function DriveReviewScreen({ songs, onUpdateSong, duplicates, ambiguous, unmatched, appliedCount, alreadyLinkedCount, onClose, onOpenFolderSettings, onScan }) {
-  const [resolved, setResolved] = useState(() => /* @__PURE__ */ new Set());
+function DriveReviewScreen({ songs, onUpdateSong, duplicates, ambiguous, unmatched, appliedCount, alreadyLinkedCount, onResolveItem, onClose, onOpenFolderSettings, onScan }) {
   const [renamingFile, setRenamingFile] = useState(null);
   const [renameValue, setRenameValue] = useState("");
   const [showUnmatched, setShowUnmatched] = useState(false);
@@ -3966,11 +3971,8 @@ function DriveReviewScreen({ songs, onUpdateSong, duplicates, ambiguous, unmatch
     const next = [...song.recording || [], { id: uid(), name, url }];
     onUpdateSong(songId, { recording: next });
   }
-  function markResolved(filename) {
-    setResolved((prev) => new Set(prev).add(filename));
-  }
   function handleSkip(filename) {
-    markResolved(filename);
+    onResolveItem(filename);
   }
   function handleReplace(dup) {
     const song = songs.find((s) => s.id === dup.songId);
@@ -3979,7 +3981,7 @@ function DriveReviewScreen({ songs, onUpdateSong, duplicates, ambiguous, unmatch
       (l) => l.name.trim().toLowerCase() === dup.tag.trim().toLowerCase() ? { ...l, url: dup.fileUrl } : l
     );
     onUpdateSong(dup.songId, { recording: next });
-    markResolved(dup.filename);
+    onResolveItem(dup.filename);
   }
   function startRename(dup) {
     setRenamingFile(dup.filename);
@@ -3989,23 +3991,20 @@ function DriveReviewScreen({ songs, onUpdateSong, duplicates, ambiguous, unmatch
     const name = renameValue.trim();
     if (!name) return;
     addLinkToSong(dup.songId, name, dup.fileUrl);
-    markResolved(dup.filename);
+    onResolveItem(dup.filename);
     setRenamingFile(null);
   }
   function handlePickSong(amb, songId) {
     addLinkToSong(songId, amb.tag, amb.fileUrl);
-    markResolved(amb.filename);
+    onResolveItem(amb.filename);
   }
   function handleManualLink(songId, name) {
     if (!linkingFile) return;
     addLinkToSong(songId, name, linkingFile.fileUrl);
-    markResolved(linkingFile.filename);
+    onResolveItem(linkingFile.filename);
     setLinkingFile(null);
   }
-  const visibleDuplicates = duplicates.filter((d) => !resolved.has(d.filename));
-  const visibleAmbiguous = ambiguous.filter((a) => !resolved.has(a.filename));
-  const visibleUnmatched = unmatched.filter((f) => !resolved.has(f.filename));
-  const needsAttention = visibleDuplicates.length + visibleAmbiguous.length;
+  const needsAttention = duplicates.length + ambiguous.length;
   return /* @__PURE__ */ React.createElement(
     "div",
     {
@@ -4037,7 +4036,7 @@ function DriveReviewScreen({ songs, onUpdateSong, duplicates, ambiguous, unmatch
       },
       /* @__PURE__ */ React.createElement(Icon, { name: "refresh", size: 16, color: "var(--bg)", className: scanning ? "spin" : "" }),
       scanning ? "Scanning\u2026" : "Scan Drive Folder"
-    ), appliedCount > 0 || alreadyLinkedCount > 0 || needsAttention > 0 ? /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewSummary }, appliedCount, " clean match", appliedCount === 1 ? "" : "es", " applied.", " ", alreadyLinkedCount > 0 ? `${alreadyLinkedCount} already linked. ` : "", needsAttention > 0 ? `${needsAttention} need your attention.` : "") : /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewSummary }, "Tap the button above to scan your Drive folder for new recordings."), visibleDuplicates.map((dup) => /* @__PURE__ */ React.createElement("div", { key: dup.filename, style: styles.driveReviewCard }, /* @__PURE__ */ React.createElement(Icon, { name: "alertTriangle", size: 14, color: "var(--needs)" }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewFilename }, dup.filename), /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewMatch }, dup.songTitle, " ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--dim)" } }, "\u2192"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--gold)" } }, dup.tag)), /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewWarning }, "Already has a link named ", dup.tag), renamingFile === dup.filename ? /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewRenameForm }, /* @__PURE__ */ React.createElement(
+    ), appliedCount > 0 || alreadyLinkedCount > 0 || needsAttention > 0 ? /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewSummary }, appliedCount, " clean match", appliedCount === 1 ? "" : "es", " applied.", " ", alreadyLinkedCount > 0 ? `${alreadyLinkedCount} already linked. ` : "", needsAttention > 0 ? `${needsAttention} need your attention.` : "") : /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewSummary }, "Tap the button above to scan your Drive folder for new recordings."), duplicates.map((dup) => /* @__PURE__ */ React.createElement("div", { key: dup.filename, style: styles.driveReviewCard }, /* @__PURE__ */ React.createElement(Icon, { name: "alertTriangle", size: 14, color: "var(--needs)" }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewFilename }, dup.filename), /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewMatch }, dup.songTitle, " ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--dim)" } }, "\u2192"), " ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--gold)" } }, dup.tag)), /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewWarning }, "Already has a link named ", dup.tag), renamingFile === dup.filename ? /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewRenameForm }, /* @__PURE__ */ React.createElement(
       "input",
       {
         autoFocus: true,
@@ -4045,7 +4044,7 @@ function DriveReviewScreen({ songs, onUpdateSong, duplicates, ambiguous, unmatch
         onChange: (e) => setRenameValue(e.target.value),
         style: styles.driveReviewRenameInput
       }
-    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setRenamingFile(null), style: styles.driveReviewBtnQuiet }, "Cancel"), /* @__PURE__ */ React.createElement("button", { onClick: () => confirmRename(dup), style: styles.driveReviewBtnGold }, "Save"))) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => handleSkip(dup.filename), style: styles.driveReviewBtnQuiet }, "Skip"), /* @__PURE__ */ React.createElement("button", { onClick: () => handleReplace(dup), style: styles.driveReviewBtnGold }, "Replace existing ", dup.tag), /* @__PURE__ */ React.createElement("button", { onClick: () => startRename(dup), style: styles.driveReviewBtnQuiet }, "Rename"))))), visibleAmbiguous.map((amb) => /* @__PURE__ */ React.createElement("div", { key: amb.filename, style: styles.driveReviewCard }, /* @__PURE__ */ React.createElement(Icon, { name: "alertTriangle", size: 14, color: "var(--needs)" }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewFilename }, amb.filename), /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewMatchesLabel }, "Matches two songs equally:"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 5, flexWrap: "wrap" } }, amb.candidates.map((c) => /* @__PURE__ */ React.createElement("button", { key: c.id, onClick: () => handlePickSong(amb, c.id), style: styles.driveReviewBtnPick }, c.title)))))), visibleUnmatched.length > 0 && /* @__PURE__ */ React.createElement("button", { onClick: () => setShowUnmatched((v) => !v), style: styles.driveReviewUnmatchedToggle }, /* @__PURE__ */ React.createElement("span", null, visibleUnmatched.length, " files didn't match any song"), /* @__PURE__ */ React.createElement(Icon, { name: showUnmatched ? "chevronUp" : "chevronDown", size: 15, color: "var(--dim)" })), showUnmatched && /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewUnmatchedList }, visibleUnmatched.map((f) => /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setRenamingFile(null), style: styles.driveReviewBtnQuiet }, "Cancel"), /* @__PURE__ */ React.createElement("button", { onClick: () => confirmRename(dup), style: styles.driveReviewBtnGold }, "Save"))) : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => handleSkip(dup.filename), style: styles.driveReviewBtnQuiet }, "Skip"), /* @__PURE__ */ React.createElement("button", { onClick: () => handleReplace(dup), style: styles.driveReviewBtnGold }, "Replace existing ", dup.tag), /* @__PURE__ */ React.createElement("button", { onClick: () => startRename(dup), style: styles.driveReviewBtnQuiet }, "Rename"))))), ambiguous.map((amb) => /* @__PURE__ */ React.createElement("div", { key: amb.filename, style: styles.driveReviewCard }, /* @__PURE__ */ React.createElement(Icon, { name: "alertTriangle", size: 14, color: "var(--needs)" }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewFilename }, amb.filename), /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewMatchesLabel }, "Matches two songs equally:"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 5, flexWrap: "wrap" } }, amb.candidates.map((c) => /* @__PURE__ */ React.createElement("button", { key: c.id, onClick: () => handlePickSong(amb, c.id), style: styles.driveReviewBtnPick }, c.title)))))), unmatched.length > 0 && /* @__PURE__ */ React.createElement("button", { onClick: () => setShowUnmatched((v) => !v), style: styles.driveReviewUnmatchedToggle }, /* @__PURE__ */ React.createElement("span", null, unmatched.length, " files didn't match any song"), /* @__PURE__ */ React.createElement(Icon, { name: showUnmatched ? "chevronUp" : "chevronDown", size: 15, color: "var(--dim)" })), showUnmatched && /* @__PURE__ */ React.createElement("div", { style: styles.driveReviewUnmatchedList }, unmatched.map((f) => /* @__PURE__ */ React.createElement(
       "button",
       {
         key: f.filename,
