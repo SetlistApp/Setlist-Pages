@@ -31,7 +31,8 @@
   <style>
     html, body { margin: 0; padding: 0; background: #121214; height: 100%; overflow: hidden; overscroll-behavior: none; }
     #root { height: 100vh; height: 100dvh; overflow: hidden; }
-    * { -webkit-tap-highlight-color: transparent; }
+    * { -webkit-tap-highlight-color: rgba(0,0,0,0); -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+    input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
   </style>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -511,7 +512,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 2e3);
 }
-const APP_VERSION = "2.0.3-beta5";
+const APP_VERSION = "2.0.3-beta6";
 var _realtimeStatus = "not configured";
 function readRecoverablePatches(raw, now) {
   try {
@@ -4793,7 +4794,6 @@ function FontLoad() {
       * { box-sizing: border-box; }
       input, textarea, button, select { font-family: inherit; }
       textarea:focus, input:focus, select:focus, button:focus { outline: none; border-color: var(--gold) !important; }
-      button, a, [role="button"] { -webkit-touch-callout: none; }
     `);
 }
 const spinCss = `
@@ -4841,7 +4841,7 @@ const rawStyles = {
   statusDotLabel: { fontFamily: "var(--body)", fontSize: 11, fontWeight: 600, letterSpacing: 0.3, whiteSpace: "nowrap", transition: "color 0.3s" },
   refreshBtn: { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" },
   tabRow: { display: "flex", gap: 6, padding: "0 16px 10px" },
-  tab: { flex: 1, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 6px", color: "var(--dim)", fontFamily: "var(--display)", fontWeight: 600, fontSize: 12.5, letterSpacing: "0.03em", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, userSelect: "none", WebkitUserSelect: "none" },
+  tab: { flex: 1, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 6px", color: "var(--dim)", fontFamily: "var(--display)", fontWeight: 600, fontSize: 12.5, letterSpacing: "0.03em", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 },
   tabActive: { background: "var(--gold)", color: "var(--bg)", borderColor: "var(--gold)" },
   tabCount: { fontFamily: "var(--mono)", fontSize: 10.5, color: "var(--dim)" },
   searchRow: { display: "flex", alignItems: "center", gap: 8, margin: "2px 16px 12px", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 12px" },
@@ -4849,7 +4849,7 @@ const rawStyles = {
   clearBtn: { background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex" },
   list: { flex: 1, overflowY: "auto", padding: "0 16px 100px", display: "flex", flexDirection: "column", gap: 6 },
   emptyState: { textAlign: "center", color: "var(--dim)", fontSize: 13.5, padding: "60px 20px", display: "flex", flexDirection: "column", alignItems: "center" },
-  row: { display: "flex", alignItems: "center", gap: 12, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, padding: "13px 14px", cursor: "pointer", textAlign: "left", width: "100%", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" },
+  row: { display: "flex", alignItems: "center", gap: 12, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, padding: "13px 14px", cursor: "pointer", textAlign: "left", width: "100%" },
   dragRow: { display: "flex", alignItems: "center", gap: 4, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, padding: "5px 8px 5px 4px" },
   rowMain: { flex: 1, display: "flex", alignItems: "center", gap: 12, background: "transparent", border: "none", cursor: "pointer", textAlign: "left", padding: "9px 6px" },
   dragHandle: { padding: "4px 6px", touchAction: "none", cursor: "grab", display: "flex", alignItems: "center", flexShrink: 0 },
