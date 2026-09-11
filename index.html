@@ -520,7 +520,7 @@ function nextRetryDelay(attempt) {
   const base = Math.min(RETRY_DELAY_MS * Math.pow(2, n), RETRY_MAX_DELAY_MS);
   return base + Math.floor(Math.random() * 2e3);
 }
-const APP_VERSION = "2.0.3-beta9";
+const APP_VERSION = "2.0.3-beta10";
 var _realtimeStatus = "not configured";
 function readRecoverablePatches(raw, now) {
   try {
@@ -1633,12 +1633,8 @@ function App() {
     if (isManual) setManualRefreshing(false);
   }
   function handleManualRefresh() {
-    if (saveState === "offline" || syncStatus === "error") {
-      saveReloadSnapshot();
-      forceFullReload();
-      return;
-    }
-    refreshAllData(true);
+    saveReloadSnapshot();
+    forceFullReload();
   }
   const refreshAllDataRef = useRef(refreshAllData);
   useEffect(() => {
